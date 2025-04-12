@@ -1,0 +1,31 @@
+# Django Framework
+Django==4.2.7
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+
+# AI and LLM Orchestration
+langchain==0.0.352
+langchain-community==0.0.13
+langchain-openai==0.0.5
+openai==1.66.0  # Required version per project memory
+httpx==0.27.0  # Required version per project memory
+python-dotenv==1.0.0
+
+# Document Parsing
+PyMuPDF==1.23.5  # PDF parsing
+python-docx==0.8.11  # DOCX parsing
+apache-tika==2.6.0  # Universal document parser
+
+# OCR
+pytesseract==0.3.10
+Pillow==10.1.0  # Required for image processing with pytesseract
+
+# Audio Processing
+pydub==0.25.1  # Audio file manipulation
+SpeechRecognition==3.10.0  # For live microphone recording
+
+# Vector Storage for Embeddings
+faiss-cpu==1.7.4  # Vector similarity search
+numpy==1.24.3  # Required for FAISS
+
+# Utilities
+tqdm==4.66.1  # Progress bars
