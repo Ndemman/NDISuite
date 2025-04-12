@@ -18,7 +18,7 @@ NDISuite Report Writer is a Django-based backend service that:
 - **Framework**: Python + Django
 - **AI Orchestration**: LangChain
 - **Transcription**: OpenAI Whisper
-- **Document Parsing**: PyMuPDF, python-docx, Apache Tika
+- **Document Parsing**: PyMuPDF, python-docx
 - **OCR Fallback**: Tesseract OCR
 - **Database**: PostgreSQL
 - **RAG Model**: GPT-3.5 Turbo (OpenAI)
