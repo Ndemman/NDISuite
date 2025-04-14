@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth/auth-context'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
-import { cn } from '@/utilities/utils'
+import { cn } from '@/lib/utils'
 
 export default function DashboardLayout({
   children,

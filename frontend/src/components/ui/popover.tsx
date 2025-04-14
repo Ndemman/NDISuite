@@ -127,14 +127,15 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
     return (
       <div
         ref={(node) => {
+          // Set the content ref first
+          contentRef.current = node
+          
+          // Then handle the forwarded ref
           if (typeof ref === "function") {
             ref(node)
           } else if (ref) {
-            // Handle the ref without direct assignment
-            const refCopy = ref as React.MutableRefObject<HTMLDivElement | null>
-            refCopy.current = node
+            ref.current = node
           }
-          contentRef.current = node
         }}
         style={{
           position: "fixed",

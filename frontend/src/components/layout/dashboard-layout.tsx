@@ -2,7 +2,7 @@ import { ReactNode } from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { useUIStore } from '@/store/ui-store'
-import { cn } from '@/utilities/utils'
+import { cn } from '@/lib/utils'
 
 interface DashboardLayoutProps {
   children: ReactNode

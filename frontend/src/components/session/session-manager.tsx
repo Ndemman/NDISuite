@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { formatDate } from '@/utilities/utils'
+import { formatDate } from '@/lib/utils'
 import { Save, FileText, Mic, Upload, Clock, CheckCircle2, AlertCircle, Trash, Edit, Plus } from 'lucide-react'
 
 interface SessionCardProps {

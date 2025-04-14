@@ -18,7 +18,7 @@ import {
   X,
   Trash
 } from 'lucide-react'
-import { formatFileSize, isAllowedFileType } from '@/utilities/utils'
+import { formatFileSize, isAllowedFileType } from '@/lib/utils'
 
 interface UploadedFile {
   id: string

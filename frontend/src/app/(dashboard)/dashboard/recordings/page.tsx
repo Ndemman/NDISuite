@@ -11,7 +11,7 @@ import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { formatFileSize, formatDate } from '@/utilities/utils'
+import { formatFileSize, formatDate } from '@/lib/utils'
 import { 
   Mic, 
   Play,
@@ -177,10 +177,20 @@ export default function RecordingsPage() {
     }
     
     try {
+      // Check if MediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('MediaDevices API not supported in this browser or environment')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
       // Set up audio context and analyser for visualization
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioContextClass) {
+        throw new Error('AudioContext not supported in this browser or environment')
+      }
+      
+      audioContextRef.current = new AudioContextClass()
       analyserRef.current = audioContextRef.current.createAnalyser()
       analyserRef.current.fftSize = 2048
       
@@ -253,10 +263,35 @@ export default function RecordingsPage() {
       
     } catch (error) {
       console.error('Error starting recording:', error)
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = 'Failed to start audio recording.'
+      
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          errorMessage = 'Microphone access was denied. Please allow microphone permissions in your browser settings.'
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          errorMessage = 'No microphone detected. Please connect a microphone and try again.'
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          errorMessage = 'Your microphone is busy or not available. Please close other applications that might be using it.'
+        } else if (error.name === 'AbortError') {
+          errorMessage = 'Recording was aborted. Please try again.'
+        } else if (error.name === 'SecurityError') {
+          errorMessage = 'Recording is not allowed in this context due to security restrictions.'
+        }
+      } else if (error instanceof Error && error.message.includes('not supported')) {
+        errorMessage = 'Audio recording is not supported in this browser or environment. Try using Chrome, Firefox, or Edge.'
+      }
+      
+      // In browser preview environments, provide specific guidance
+      if (window.location.hostname.includes('127.0.0.1') || window.location.hostname.includes('localhost')) {
+        errorMessage += ' Note: Microphone access may be limited in browser preview environments.'
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Recording failed',
-        description: 'Failed to start audio recording. Please check your microphone permissions.'
+        description: errorMessage
       })
     }
   }

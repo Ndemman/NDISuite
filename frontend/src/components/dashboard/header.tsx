@@ -12,7 +12,7 @@ import {
   Settings,
   LogOut
 } from 'lucide-react'
-import { cn } from '@/utilities/utils'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useTheme } from 'next-themes'
 import {
