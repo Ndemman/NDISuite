@@ -99,27 +99,42 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
     const contentRef = React.useRef<HTMLDivElement>(null)
 
     React.useEffect(() => {
-      if (open && triggerRef.current && contentRef.current) {
-        const triggerRect = triggerRef.current.getBoundingClientRect()
-        const contentRect = contentRef.current.getBoundingClientRect()
+      // Only run this effect when the popover is open
+      if (!open || !triggerRef.current) return;
+      
+      // Use requestAnimationFrame to ensure the content is rendered before measuring
+      const frameId = requestAnimationFrame(() => {
+        // Check both refs are valid before proceeding
+        if (!contentRef.current || !triggerRef.current) return;
         
-        let top = triggerRect.bottom + sideOffset
-        let left = triggerRect.left
+        const triggerRect = triggerRef.current.getBoundingClientRect();
+        const contentRect = contentRef.current.getBoundingClientRect();
+        
+        let top = triggerRect.bottom + sideOffset;
+        let left = triggerRect.left;
         
         if (align === "center") {
-          left = triggerRect.left + (triggerRect.width / 2) - (contentRect.width / 2)
+          left = triggerRect.left + (triggerRect.width / 2) - (contentRect.width / 2);
         } else if (align === "end") {
-          left = triggerRect.right - contentRect.width
+          left = triggerRect.right - contentRect.width;
         }
         
         // Make sure the popover doesn't go off screen
-        if (left < 10) left = 10
+        if (left < 10) left = 10;
         if (left + contentRect.width > window.innerWidth - 10) {
-          left = window.innerWidth - contentRect.width - 10
+          left = window.innerWidth - contentRect.width - 10;
         }
         
-        setPosition({ top, left })
-      }
+        // Check if popover goes below viewport and reposition if needed
+        if (top + contentRect.height > window.innerHeight - 10) {
+          // Position above the trigger instead
+          top = triggerRect.top - contentRect.height - sideOffset;
+        }
+        
+        setPosition({ top, left });
+      });
+      
+      return () => cancelAnimationFrame(frameId);
     }, [open, triggerRef, align, sideOffset])
     
     if (!open) return null

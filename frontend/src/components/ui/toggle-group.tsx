@@ -13,8 +13,11 @@ interface ToggleGroupContextType extends VariantProps<typeof toggleVariants> {
 }
 
 const ToggleGroupContext = React.createContext<ToggleGroupContextType>({
+  type: "single",
+  value: "",
   size: "default",
   variant: "default",
+  onValueChange: () => {}
 })
 
 interface ToggleGroupProps 
@@ -44,9 +47,15 @@ const ToggleGroup = React.forwardRef<
     if (type === "single") {
       newValue = pressed ? itemValue : ""
     } else {
-      const currentValues = Array.isArray(selectedValue) ? selectedValue : []
+      // Ensure we're working with an array for multiple selection
+      const currentValues = Array.isArray(selectedValue) ? [...selectedValue] : []
       if (pressed) {
-        newValue = [...currentValues, itemValue]
+        // Only add if not already present
+        if (!currentValues.includes(itemValue)) {
+          newValue = [...currentValues, itemValue]
+        } else {
+          newValue = currentValues
+        }
       } else {
         newValue = currentValues.filter((v) => v !== itemValue)
       }
@@ -84,10 +93,10 @@ const ToggleGroupItem = React.forwardRef<
   const context = React.useContext(ToggleGroupContext)
   
   const isSelected = React.useMemo(() => {
-    if (!context.value) return false
+    if (context.value === undefined || context.value === null) return false;
     return Array.isArray(context.value) 
       ? context.value.includes(value)
-      : context.value === value
+      : context.value === value;
   }, [context.value, value])
 
   const handlePress = React.useCallback((pressed: boolean) => {
