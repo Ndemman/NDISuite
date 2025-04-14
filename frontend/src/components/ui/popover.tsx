@@ -96,7 +96,10 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
   ({ className, align = "center", sideOffset = 4, ...props }, ref) => {
     const { open, triggerRef } = usePopoverContext()
     const [position, setPosition] = React.useState({ top: 0, left: 0 })
-    const contentRef = React.useRef<HTMLDivElement>(null)
+    const internalRef = React.useRef<HTMLDivElement>(null)
+
+    // Forward the internal ref to the provided ref
+    React.useImperativeHandle(ref, () => internalRef.current as HTMLDivElement)
 
     React.useEffect(() => {
       // Only run this effect when the popover is open
@@ -105,10 +108,10 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
       // Use requestAnimationFrame to ensure the content is rendered before measuring
       const frameId = requestAnimationFrame(() => {
         // Check both refs are valid before proceeding
-        if (!contentRef.current || !triggerRef.current) return;
+        if (!internalRef.current || !triggerRef.current) return;
         
         const triggerRect = triggerRef.current.getBoundingClientRect();
-        const contentRect = contentRef.current.getBoundingClientRect();
+        const contentRect = internalRef.current.getBoundingClientRect();
         
         let top = triggerRect.bottom + sideOffset;
         let left = triggerRect.left;
@@ -141,17 +144,7 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
     
     return (
       <div
-        ref={(node) => {
-          // Set the content ref first
-          contentRef.current = node
-          
-          // Then handle the forwarded ref
-          if (typeof ref === "function") {
-            ref(node)
-          } else if (ref) {
-            ref.current = node
-          }
-        }}
+        ref={internalRef}
         style={{
           position: "fixed",
           top: `${position.top}px`,
