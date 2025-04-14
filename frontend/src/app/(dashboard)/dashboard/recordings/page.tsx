@@ -534,7 +534,23 @@ export default function RecordingsPage() {
         description: 'Your recording has been successfully transcribed.'
       })
     } catch (error) {
-      console.error('Transcription error:', error)
+      // Better error handling with specific error message
+      let errorMessage = 'There was an error transcribing your recording. Please try again.';
+      
+      if (error instanceof Error) {
+        console.error('Transcription error:', { 
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+        
+        // Use the actual error message if available
+        if (error.message) {
+          errorMessage = error.message;
+        }
+      } else {
+        console.error('Transcription error:', String(error));
+      }
       
       // Update status to error
       setRecordings(prev => 
@@ -545,7 +561,7 @@ export default function RecordingsPage() {
       
       toast({
         title: 'Transcription failed',
-        description: 'There was an error transcribing your recording. Please try again.',
+        description: errorMessage,
         variant: 'destructive'
       })
     }

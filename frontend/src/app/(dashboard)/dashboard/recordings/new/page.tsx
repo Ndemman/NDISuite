@@ -70,10 +70,20 @@ export default function NewRecordingPage() {
   // Handle recording start
   const startRecording = async () => {
     try {
+      // Check if MediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('MediaDevices API not supported in this browser or environment')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
       // Set up audio context and analyser for visualization
-      audioContextRef.current = new AudioContext()
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioContextClass) {
+        throw new Error('AudioContext not supported in this browser or environment')
+      }
+      
+      audioContextRef.current = new AudioContextClass()
       analyserRef.current = audioContextRef.current.createAnalyser()
       const source = audioContextRef.current.createMediaStreamSource(stream)
       source.connect(analyserRef.current)
@@ -117,9 +127,34 @@ export default function NewRecordingPage() {
       
     } catch (error) {
       console.error('Error accessing microphone:', error)
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = 'Failed to access microphone.'
+      
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          errorMessage = 'Microphone access was denied. Please allow microphone permissions in your browser settings.'
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          errorMessage = 'No microphone detected. Please connect a microphone and try again.'
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          errorMessage = 'Your microphone is busy or not available. Please close other applications that might be using it.'
+        } else if (error.name === 'AbortError') {
+          errorMessage = 'Recording was aborted. Please try again.'
+        } else if (error.name === 'SecurityError') {
+          errorMessage = 'Recording is not allowed in this context due to security restrictions.'
+        }
+      } else if (error instanceof Error && error.message.includes('not supported')) {
+        errorMessage = 'Audio recording is not supported in this browser or environment. Try using Chrome, Firefox, or Edge.'
+      }
+      
+      // In browser preview environments, provide specific guidance
+      if (window.location.hostname.includes('127.0.0.1') || window.location.hostname.includes('localhost')) {
+        errorMessage += ' Note: Microphone access may be limited in browser preview environments.'
+      }
+      
       toast({
         title: 'Microphone Access Error',
-        description: 'Please allow microphone access to record audio.',
+        description: errorMessage,
         variant: 'destructive'
       })
     }
@@ -265,12 +300,29 @@ export default function NewRecordingPage() {
         description: 'Your audio has been transcribed successfully.',
       })
     } catch (error) {
-      console.error('Transcription error:', error)
+      // Better error handling with specific error message
+      let errorMessage = 'There was an error transcribing your audio. You can try again later.';
+      
+      if (error instanceof Error) {
+        console.error('Transcription error:', { 
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+        
+        // Use the actual error message if available
+        if (error.message) {
+          errorMessage = error.message;
+        }
+      } else {
+        console.error('Transcription error:', String(error));
+      }
+      
       toast({
         title: 'Transcription Failed',
-        description: 'There was an error transcribing your audio. You can try again later.',
+        description: errorMessage,
         variant: 'destructive'
-      })
+      });
     } finally {
       setIsTranscribing(false)
     }
