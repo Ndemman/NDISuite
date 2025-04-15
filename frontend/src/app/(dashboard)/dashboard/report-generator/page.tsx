@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CustomTabs, TabPanel } from '@/components/report-generator/custom-tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/contexts/session/session-context'
@@ -28,6 +28,15 @@ export default function ReportGeneratorPage() {
   
   // State management
   const [activeTab, setActiveTab] = useState('begin')
+  
+  // Define tabs for our custom tab component
+  const tabs = [
+    { id: 'begin', label: 'Begin' },
+    { id: 'data', label: 'Data' },
+    { id: 'sources', label: 'Sources' },
+    { id: 'output', label: 'Configure' },
+    { id: 'generate', label: 'Generate' }
+  ]
   const [selectedFiles, setSelectedFiles] = useState<SessionFile[]>([])
   const [outputConfig, setOutputConfig] = useState<OutputConfigurationData>({
     language: 'en',
@@ -190,7 +199,7 @@ export default function ReportGeneratorPage() {
   }
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 report-container">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Report Generator</h1>
         <p className="text-muted-foreground">
@@ -198,17 +207,15 @@ export default function ReportGeneratorPage() {
         </p>
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="begin">Begin</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-          <TabsTrigger value="sources">Sources</TabsTrigger>
-          <TabsTrigger value="output">Configure</TabsTrigger>
-          <TabsTrigger value="generate">Generate</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="begin">
-          <Card>
+      <CustomTabs 
+        tabs={tabs} 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+      />
+      
+      <div className="space-y-4 w-full">
+        <TabPanel id="begin" activeTab={activeTab}>
+          <Card className="report-card">
             <CardHeader>
               <CardTitle>Begin</CardTitle>
               <CardDescription>
@@ -216,8 +223,8 @@ export default function ReportGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                   <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setActiveTab('data')}>
                     <CardHeader>
                       <CardTitle>New Report</CardTitle>
@@ -257,10 +264,10 @@ export default function ReportGeneratorPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabPanel>
         
-        <TabsContent value="data">
-          <Card>
+        <TabPanel id="data" activeTab={activeTab}>
+          <Card className="report-card">
             <CardHeader>
               <CardTitle>Data Collection</CardTitle>
               <CardDescription>
@@ -312,10 +319,10 @@ export default function ReportGeneratorPage() {
               </Button>
             </CardFooter>
           </Card>
-        </TabsContent>
+        </TabPanel>
         
-        <TabsContent value="sources">
-          <Card>
+        <TabPanel id="sources" activeTab={activeTab}>
+          <Card className="report-card">
             <CardHeader>
               <CardTitle>Sources</CardTitle>
               <CardDescription>
@@ -325,7 +332,7 @@ export default function ReportGeneratorPage() {
             <CardContent>
               {/* Sources tab content */}
               <div className="space-y-4 py-4">
-                <div className="grid gap-4">
+                <div className="grid gap-4 w-full">
                   {selectedFiles.length === 0 ? (
                     <div className="text-center p-4 border rounded-md border-dashed">
                       <p className="text-muted-foreground">No files selected. Add files from the Data tab.</p>
@@ -373,11 +380,11 @@ export default function ReportGeneratorPage() {
               </Button>
             </CardFooter>
           </Card>
-        </TabsContent>
+        </TabPanel>
         
-        <TabsContent value="output">
+        <TabPanel id="output" activeTab={activeTab}>
           <div className="space-y-4">
-            <Card>
+            <Card className="report-card">
               <CardHeader>
                 <CardTitle>Configure Output</CardTitle>
                 <CardDescription>
@@ -404,10 +411,10 @@ export default function ReportGeneratorPage() {
               </CardFooter>
             </Card>
           </div>
-        </TabsContent>
+        </TabPanel>
         
-        <TabsContent value="generate">
-          <Card>
+        <TabPanel id="generate" activeTab={activeTab}>
+          <Card className="report-card">
             <CardHeader>
               <CardTitle>Generate Report</CardTitle>
               <CardDescription>
@@ -418,8 +425,8 @@ export default function ReportGeneratorPage() {
               <p>Report generation interface would go here</p>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </TabPanel>
+      </div>
     </div>
   )
 }
