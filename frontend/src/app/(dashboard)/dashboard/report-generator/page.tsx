@@ -10,7 +10,7 @@ import { useSession, SessionData, SessionFile } from '@/contexts/session/session
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Separator } from '@/components/ui/separator'
-import { AlertCircle, ArrowRight, CheckCircle2, FileCheck, FileText, Mic, Upload, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, FileCheck, FileText, Mic, Upload, Loader2, Square, Play } from 'lucide-react'
 
 export default function ReportGeneratorPage() {
   const { sessions, currentSession, setCurrentSession, updateSession, createSession } = useSession()
@@ -26,6 +26,7 @@ export default function ReportGeneratorPage() {
   })
   const [generatedReport, setGeneratedReport] = useState<RAGResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedOption, setSelectedOption] = useState<'record' | 'upload' | null>(null)
   
   // Initialize router for navigation
   const router = useRouter()
@@ -228,12 +229,23 @@ export default function ReportGeneratorPage() {
   const canConfigureOutput = selectedFiles.length > 0 || (currentSession?.content?.rawContent && currentSession.content.rawContent.length > 0)
   const canGenerateReport = outputConfig.outputFormat !== ''
   
-  // Navigate to recording or upload page
+  // Handle recording or upload selection within the workflow
   const navigateToRecording = () => {
-    router.push('/dashboard/recordings/new')
+    setSelectedOption('record')
+    setActiveTab('data')
   }
 
   const navigateToUpload = () => {
+    setSelectedOption('upload')
+    setActiveTab('data')
+  }
+  
+  // Navigate to external recording or upload pages if needed
+  const navigateToExternalRecording = () => {
+    router.push('/dashboard/recordings/new')
+  }
+
+  const navigateToExternalUpload = () => {
     router.push('/dashboard/uploads')
   }
 
@@ -258,8 +270,8 @@ export default function ReportGeneratorPage() {
             <TabsTrigger value="begin">
               Begin
             </TabsTrigger>
-            <TabsTrigger value="transcription" disabled={!currentSession || !currentSession.files || currentSession.files.length === 0}>
-              Transcription
+            <TabsTrigger value="data" disabled={!selectedOption}>
+              Data
             </TabsTrigger>
             <TabsTrigger value="sources" disabled={activeTab === 'output' && !canConfigureOutput}>
               Sources
@@ -305,7 +317,7 @@ export default function ReportGeneratorPage() {
                         className="mt-2 group" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigateToRecording();
+                          navigateToUpload();
                         }}
                       >
                         Get Started
@@ -330,7 +342,7 @@ export default function ReportGeneratorPage() {
                         className="mt-2 group" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigateToRecording();
+                          navigateToUpload();
                         }}
                       >
                         Get Started
@@ -380,50 +392,143 @@ export default function ReportGeneratorPage() {
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button 
-                onClick={() => setActiveTab('transcription')}
-                disabled={!currentSession}
+                onClick={() => selectedOption ? setActiveTab('data') : null}
+                disabled={!selectedOption}
               >
-                Go to Transcription
+                Go to Data
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
         </TabsContent>
         
-        <TabsContent value="transcription" className="space-y-4">
+        <TabsContent value="data" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Transcription</CardTitle>
+              <CardTitle>{selectedOption === 'record' ? 'Audio Recording' : 'File Upload'}</CardTitle>
               <CardDescription>
-                View and edit your session transcription
+                {selectedOption === 'record' 
+                  ? 'Record your session audio directly or select existing recordings' 
+                  : 'Upload documents or audio files for processing'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {currentSession?.content?.rawContent ? (
-                <div className="bg-muted rounded-md p-4 max-h-[400px] overflow-y-auto">
-                  <p className="whitespace-pre-wrap">{currentSession.content.rawContent}</p>
+              {selectedOption === 'record' ? (
+                // Recording Interface
+                <div>
+                  <div className="bg-muted rounded-md p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <Button 
+                        variant="outline" 
+                        size="lg"
+                        className="flex items-center justify-center h-16 w-16 rounded-full"
+                      >
+                        <Mic className="h-6 w-6" />
+                      </Button>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">00:00</div>
+                        <div className="text-sm text-muted-foreground">Recording Time</div>
+                      </div>
+                    </div>
+                    <div className="w-full max-w-md">
+                      <div className="bg-primary/10 h-12 rounded-md relative">
+                        <div className="absolute top-0 left-0 bg-primary h-full w-0 rounded-md"></div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center space-x-2">
+                      <Button variant="outline" className="flex items-center space-x-2">
+                        <Square className="h-4 w-4 mr-2" />
+                        <span>Stop</span>
+                      </Button>
+                      <Button variant="outline" className="flex items-center space-x-2">
+                        <Play className="h-4 w-4 mr-2" />
+                        <span>Start</span>
+                      </Button>
+                    </div>
+                    <div className="mt-4 text-sm text-muted-foreground">
+                      <p>Click Start to begin recording your session</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center text-sm text-muted-foreground mt-4">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    <p>For best results, speak clearly and minimize background noise.</p>
+                  </div>
+                  
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-lg font-medium mb-2">Need more advanced recording features?</h3>
+                    <p className="text-sm text-muted-foreground mb-2">Use our dedicated recording page for more options.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={navigateToExternalRecording}
+                      className="flex items-center space-x-2"
+                    >
+                      <Mic className="h-4 w-4 mr-2" />
+                      <span>Go to Advanced Recording</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : selectedOption === 'upload' ? (
+                // Upload Interface
+                <div>
+                  <div 
+                    className="border-2 border-dashed rounded-md p-8 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
+                    <input type="file" id="file-upload" className="hidden" multiple />
+                    <Upload className="h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-1">Drag and drop files here</h3>
+                    <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
+                    <Button variant="outline" size="sm">
+                      Browse Files
+                    </Button>
+                  </div>
+                  
+                  <div className="border rounded-md p-4 mt-4">
+                    <h3 className="text-lg font-medium mb-2">Supported File Types</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-3 bg-muted rounded-md">
+                        <h4 className="font-medium mb-1 flex items-center">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Documents
+                        </h4>
+                        <p className="text-xs text-muted-foreground">PDF, DOCX, TXT</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-md">
+                        <h4 className="font-medium mb-1 flex items-center">
+                          <Mic className="h-4 w-4 mr-2" />
+                          Audio
+                        </h4>
+                        <p className="text-xs text-muted-foreground">MP3, WAV, M4A</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-md">
+                        <h4 className="font-medium mb-1 flex items-center">
+                          <FileCheck className="h-4 w-4 mr-2" />
+                          Other
+                        </h4>
+                        <p className="text-xs text-muted-foreground">CSV, JSON, XML</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-lg font-medium mb-2">Need more upload options?</h3>
+                    <p className="text-sm text-muted-foreground mb-2">Use our dedicated upload page for more features.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={navigateToExternalUpload}
+                      className="flex items-center space-x-2"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      <span>Go to Advanced Upload</span>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="bg-muted rounded-md p-4 min-h-[200px] flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p>No transcription available. Record or upload an audio file first.</p>
-                  </div>
-                </div>
-              )}
-              
-              {currentSession?.content?.rawContent && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Transcript Length:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {currentSession.content.rawContent.length.toLocaleString()} characters
-                    </p>
-                  </div>
-                  <div>
-                    <Button variant="outline" size="sm">
-                      Edit Transcript
-                    </Button>
+                    <p>Please select a recording or upload option first.</p>
                   </div>
                 </div>
               )}
@@ -431,15 +536,15 @@ export default function ReportGeneratorPage() {
             <CardFooter className="flex justify-between">
               <Button 
                 variant="outline" 
-                onClick={() => setActiveTab('recording')}
+                onClick={() => setActiveTab('begin')}
               >
-                Back to Recording
+                Back to Begin
               </Button>
               <Button 
                 onClick={() => setActiveTab('sources')}
-                disabled={!currentSession?.content?.rawContent}
+                disabled={!selectedOption}
               >
-                Select Additional Sources
+                Continue to Sources
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
