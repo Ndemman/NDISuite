@@ -300,7 +300,14 @@ export default function ReportGeneratorPage() {
                         <h3 className="text-xl font-semibold">Record Audio</h3>
                         <p className="text-sm text-muted-foreground">Start a new audio recording</p>
                       </div>
-                      <Button variant="ghost" className="mt-2 group">
+                      <Button 
+                        variant="ghost" 
+                        className="mt-2 group" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToRecording();
+                        }}
+                      >
                         Get Started
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Button>
@@ -318,7 +325,14 @@ export default function ReportGeneratorPage() {
                         <h3 className="text-xl font-semibold">Upload Files</h3>
                         <p className="text-sm text-muted-foreground">Upload documents or audio files</p>
                       </div>
-                      <Button variant="ghost" className="mt-2 group">
+                      <Button 
+                        variant="ghost" 
+                        className="mt-2 group" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToRecording();
+                        }}
+                      >
                         Get Started
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Button>
