@@ -26,7 +26,6 @@ export default function ReportGeneratorPage() {
   })
   const [generatedReport, setGeneratedReport] = useState<RAGResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [showStartOptions, setShowStartOptions] = useState(true)
   
   // Initialize router for navigation
   const router = useRouter()
@@ -238,22 +237,7 @@ export default function ReportGeneratorPage() {
     router.push('/dashboard/uploads')
   }
 
-  // Show start options when first accessing the page and hide when a session is selected
-  // or when moving to other tabs
-  useEffect(() => {
-    // Always show start options when first loading the page with no session
-    if (!currentSession && activeTab === 'begin' && sessions.length === 0) {
-      setShowStartOptions(true)
-    } 
-    // Show start options when on begin tab with no active session
-    else if (!currentSession && activeTab === 'begin' && !searchParams.get('session')) {
-      setShowStartOptions(true)
-    }
-    // Hide options when a session is selected or on other tabs
-    else if (currentSession || activeTab !== 'begin') {
-      setShowStartOptions(false)
-    }
-  }, [currentSession, activeTab, sessions.length, searchParams])
+  // No longer need to manage start options visibility as they're integrated into the Begin tab
 
   return (
     <div className="space-y-6">
@@ -269,47 +253,6 @@ export default function ReportGeneratorPage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-
-      {/* Start Options - Record Audio and Upload Files buttons */}
-      {showStartOptions && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToRecording}>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Mic className="h-6 w-6 text-primary" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-semibold">Record Audio</h3>
-                  <p className="text-sm text-muted-foreground">Start a new audio recording</p>
-                </div>
-                <Button variant="ghost" className="mt-2 group">
-                  Get Started
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToUpload}>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Upload className="h-6 w-6 text-primary" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-semibold">Upload Files</h3>
-                  <p className="text-sm text-muted-foreground">Upload documents or audio files</p>
-                </div>
-                <Button variant="ghost" className="mt-2 group">
-                  Get Started
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
         <div className="flex justify-between items-center">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="begin">
@@ -340,26 +283,52 @@ export default function ReportGeneratorPage() {
         <TabsContent value="begin" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Audio Recording</CardTitle>
+              <CardTitle>Begin Your Report</CardTitle>
               <CardDescription>
-                Record your session audio directly or select existing recordings
+                Choose how you want to start creating your report
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col items-center space-y-6">
-                <div className="w-full bg-muted rounded-md p-4 flex items-center justify-center min-h-[200px]">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="flex items-center space-x-2"
-                    onClick={() => router.push('/dashboard/recordings/new')}
-                  >
-                    <Mic className="h-5 w-5" />
-                    <span>Start New Recording</span>
-                  </Button>
-                </div>
-                
-                <div className="w-full">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToRecording}>
+                  <CardContent className="p-6">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mic className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-semibold">Record Audio</h3>
+                        <p className="text-sm text-muted-foreground">Start a new audio recording</p>
+                      </div>
+                      <Button variant="ghost" className="mt-2 group">
+                        Get Started
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToUpload}>
+                  <CardContent className="p-6">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Upload className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-semibold">Upload Files</h3>
+                        <p className="text-sm text-muted-foreground">Upload documents or audio files</p>
+                      </div>
+                      <Button variant="ghost" className="mt-2 group">
+                        Get Started
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {sessions.filter(s => s.type === 'recording' && s.status === 'completed').length > 0 && (
+                <div className="w-full mt-6">
                   <h3 className="text-lg font-medium mb-2">Recent Recordings</h3>
                   {sessions
                     .filter(s => s.type === 'recording' && s.status === 'completed')
@@ -377,7 +346,10 @@ export default function ReportGeneratorPage() {
                             {new Date(session.createdAt || Date.now()).toLocaleString()}
                           </p>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleSessionSelect(session)}>
+                        <Button variant="ghost" size="sm" onClick={(e) => {
+                          e.stopPropagation();
+                          handleSessionSelect(session);
+                        }}>
                           <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -390,7 +362,7 @@ export default function ReportGeneratorPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button 
