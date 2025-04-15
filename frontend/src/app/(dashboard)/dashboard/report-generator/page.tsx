@@ -1,19 +1,18 @@
 "use client"
 
-import React, { useState } from 'react'
-import { CustomTabs, TabPanel } from '@/components/report-generator/custom-tabs'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { useSession } from '@/contexts/session/session-context'
-import { useToast } from '@/components/ui/use-toast'
-import { ArrowRight } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { ArrowRight, Mic, Square, FileText, FileCheck, Upload, Save, Loader2 } from 'lucide-react'
 
-// Import our dynamic components
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useToast } from '@/components/ui/use-toast'
 import { DynamicComponents } from '@/components/report-generator/DynamicComponents'
 
-// Import types
+// Import types and context
+import { useSession } from '@/contexts/session/session-context'
 import type { SessionData, SessionFile } from '@/contexts/session/session-context'
-import type { OutputConfigurationData } from '@/components/report-generator/output-configuration'
+import type { OutputConfigurationData } from '@/components/report-generator/tabs/OutputConfigTab'
 import type { RAGResult } from '@/components/report-generator/rag-generator'
 
 export default function ReportGeneratorPage() {
@@ -28,27 +27,25 @@ export default function ReportGeneratorPage() {
   
   // State management
   const [activeTab, setActiveTab] = useState('begin')
-  
-  // Define tabs for our custom tab component
-  const tabs = [
-    { id: 'begin', label: 'Begin' },
-    { id: 'data', label: 'Data' },
-    { id: 'sources', label: 'Sources' },
-    { id: 'output', label: 'Configure' },
-    { id: 'generate', label: 'Generate' }
-  ]
   const [selectedFiles, setSelectedFiles] = useState<SessionFile[]>([])
   const [outputConfig, setOutputConfig] = useState<OutputConfigurationData>({
-    language: 'en',
-    outputFormat: '',
     fields: []
   })
   const [generatedReport, setGeneratedReport] = useState<RAGResult | null>(null)
   const [selectedOption, setSelectedOption] = useState<'record' | 'upload' | null>(null)
   
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [audioURL, setAudioURL] = useState<string | null>(null)
+  const [transcript, setTranscript] = useState('')
+  const [recordingTitle, setRecordingTitle] = useState('New Recording')
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  
   // Determine if we can proceed with different steps
   const hasSelectedFiles = selectedFiles.length > 0
-  const hasValidOutputFormat = outputConfig.outputFormat !== ''
+  const hasValidOutputFormat = outputConfig.fields.length > 0
   
   // Handle session selection
   const handleSessionSelect = (session: SessionData) => {
@@ -57,12 +54,11 @@ export default function ReportGeneratorPage() {
     
     if (session.settings?.language) {
       setOutputConfig({
-        language: session.settings.language,
-        outputFormat: session.settings.outputFormat || '',
         fields: session.settings.fields ? session.settings.fields.map(field => ({
           id: `field-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           name: field,
-          type: 'text' as const
+          type: 'text' as const,
+          format: ''
         })) : []
       })
     }
@@ -92,7 +88,8 @@ export default function ReportGeneratorPage() {
         id: `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         name: file.name,
         type: file.type,
-        size: file.size
+        size: file.size,
+        url: URL.createObjectURL(file) // Create URL for preview
       }))
       
       // Add to selected files
@@ -104,7 +101,7 @@ export default function ReportGeneratorPage() {
           ...currentSession,
           files: [...(currentSession.files || []), ...sessionFiles]
         }
-        updateSession(currentSession.id, updatedSession)
+        await updateSession(currentSession.id, updatedSession)
       } else {
         // Create a new session with the files
         const newSession = await createSession({
@@ -123,7 +120,7 @@ export default function ReportGeneratorPage() {
         description: `${files.length} file(s) have been added to your session.`
       })
       
-      // Navigate to sources tab
+      // Force navigation to sources tab immediately
       setActiveTab('sources')
     } catch (error) {
       console.error('Error uploading files:', error)
@@ -133,6 +130,52 @@ export default function ReportGeneratorPage() {
         description: "There was an error uploading your files. Please try again."
       })
     }
+  }
+  
+  // Handle recording start
+  const handleStartRecording = () => {
+    if (!recordingTitle.trim()) {
+      toast({
+        title: "Recording Error",
+        description: "Please enter a title for your recording.",
+        variant: "destructive"
+      })
+      return
+    }
+    setIsRecording(true)
+  }
+  
+  // Handle recording stop
+  const handleStopRecording = () => {
+    setIsRecording(false)
+  }
+  
+  // Handle recording save
+  const handleRecordingSave = (blob: Blob, duration: number) => {
+    // Create a URL for the audio blob
+    const url = URL.createObjectURL(blob)
+    setAudioURL(url)
+    setRecordingTime(duration)
+    
+    // Create a file object for the recording
+    const newFile: SessionFile = {
+      id: `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      name: recordingTitle || `Recording ${new Date().toLocaleTimeString()}`,
+      type: 'audio/wav',
+      size: blob.size,
+      url: url
+    }
+    
+    // Add to selected files
+    setSelectedFiles(prev => [...prev, newFile])
+    
+    toast({
+      title: "Recording saved",
+      description: "Your recording has been added to your session."
+    })
+    
+    // Navigate to sources tab
+    setActiveTab('sources')
   }
   
   // Toggle file selection
@@ -153,8 +196,7 @@ export default function ReportGeneratorPage() {
       updateSession(currentSession.id, {
         settings: {
           ...currentSession.settings,
-          language: config.language,
-          outputFormat: config.outputFormat,
+          language: 'en', // Always use English
           fields: config.fields.map(f => f.name)
         }
       })
@@ -186,8 +228,8 @@ export default function ReportGeneratorPage() {
         status: 'completed',
         files: selectedFiles,
         settings: {
-          language: outputConfig.language,
-          outputFormat: outputConfig.outputFormat,
+          language: 'en', // Always use English
+          outputFormat: '', // No longer used
           fields: outputConfig.fields.map(f => f.name)
         },
         content: {
@@ -199,7 +241,7 @@ export default function ReportGeneratorPage() {
   }
   
   return (
-    <div className="space-y-6 report-container">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Report Generator</h1>
         <p className="text-muted-foreground">
@@ -207,15 +249,17 @@ export default function ReportGeneratorPage() {
         </p>
       </div>
       
-      <CustomTabs 
-        tabs={tabs} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
-      />
-      
-      <div className="space-y-4 w-full">
-        <TabPanel id="begin" activeTab={activeTab}>
-          <Card className="report-card">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="begin">Begin</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="sources">Sources</TabsTrigger>
+          <TabsTrigger value="output">Configure</TabsTrigger>
+          <TabsTrigger value="generate">Generate</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="begin">
+          <Card>
             <CardHeader>
               <CardTitle>Begin</CardTitle>
               <CardDescription>
@@ -223,8 +267,8 @@ export default function ReportGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 w-full">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setActiveTab('data')}>
                     <CardHeader>
                       <CardTitle>New Report</CardTitle>
@@ -264,10 +308,10 @@ export default function ReportGeneratorPage() {
               </div>
             </CardContent>
           </Card>
-        </TabPanel>
+        </TabsContent>
         
-        <TabPanel id="data" activeTab={activeTab}>
-          <Card className="report-card">
+        <TabsContent value="data">
+          <Card>
             <CardHeader>
               <CardTitle>Data Collection</CardTitle>
               <CardDescription>
@@ -298,14 +342,61 @@ export default function ReportGeneratorPage() {
               {selectedOption === 'record' && (
                 <div className="mt-4 p-4 border rounded-md">
                   <h3 className="text-lg font-medium mb-2">Record Audio</h3>
-                  <DynamicComponents.AudioRecorder />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="recording-title" className="text-sm font-medium">Recording Title</label>
+                      <input 
+                        id="recording-title" 
+                        className="w-full p-2 border rounded-md" 
+                        placeholder="Enter a title for your recording" 
+                        value={recordingTitle}
+                        onChange={(e) => setRecordingTitle(e.target.value)}
+                      />
+                    </div>
+                    <DynamicComponents.AudioRecorder 
+                      onRecordingComplete={handleRecordingSave}
+                    />
+                  </div>
                 </div>
               )}
               
               {selectedOption === 'upload' && (
                 <div className="mt-4 p-4 border rounded-md">
                   <h3 className="text-lg font-medium mb-2">Upload Files</h3>
-                  <DynamicComponents.FileUploader />
+                  <div 
+                    className="text-center p-6 border-2 border-dashed rounded-md hover:border-primary/50 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        handleFileUpload(e.dataTransfer.files)
+                      }
+                    }}
+                  >
+                    <input 
+                      type="file" 
+                      id="file-upload" 
+                      className="hidden" 
+                      multiple 
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleFileUpload(e.target.files)
+                        }
+                      }}
+                    />
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <Upload className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-medium mt-4">Upload Files</h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                      Drag and drop files here or click to browse. You can upload documents, images, or audio files.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -319,10 +410,10 @@ export default function ReportGeneratorPage() {
               </Button>
             </CardFooter>
           </Card>
-        </TabPanel>
+        </TabsContent>
         
-        <TabPanel id="sources" activeTab={activeTab}>
-          <Card className="report-card">
+        <TabsContent value="sources">
+          <Card>
             <CardHeader>
               <CardTitle>Sources</CardTitle>
               <CardDescription>
@@ -332,7 +423,7 @@ export default function ReportGeneratorPage() {
             <CardContent>
               {/* Sources tab content */}
               <div className="space-y-4 py-4">
-                <div className="grid gap-4 w-full">
+                <div className="grid gap-4">
                   {selectedFiles.length === 0 ? (
                     <div className="text-center p-4 border rounded-md border-dashed">
                       <p className="text-muted-foreground">No files selected. Add files from the Data tab.</p>
@@ -380,53 +471,33 @@ export default function ReportGeneratorPage() {
               </Button>
             </CardFooter>
           </Card>
-        </TabPanel>
+        </TabsContent>
         
-        <TabPanel id="output" activeTab={activeTab}>
+        <TabsContent value="output">
           <div className="space-y-4">
-            <Card className="report-card">
-              <CardHeader>
-                <CardTitle>Configure Output</CardTitle>
-                <CardDescription>
-                  Configure the format and content of your report.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p>Output configuration form would go here</p>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('sources')}
-                >
-                  Back to Sources
-                </Button>
-                <Button 
-                  onClick={() => setActiveTab('generate')} 
-                  disabled={!hasValidOutputFormat}
-                >
-                  Generate Report
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
+            {/* Import the OutputConfigTab component */}
+            <DynamicComponents.OutputConfigTab
+              initialConfig={outputConfig}
+              onSave={handleConfigurationSave}
+              onBack={() => setActiveTab('sources')}
+            />
           </div>
-        </TabPanel>
+        </TabsContent>
         
-        <TabPanel id="generate" activeTab={activeTab}>
-          <Card className="report-card">
-            <CardHeader>
-              <CardTitle>Generate Report</CardTitle>
-              <CardDescription>
-                Generate your report based on the selected sources and configuration.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Report generation interface would go here</p>
-            </CardContent>
-          </Card>
-        </TabPanel>
-      </div>
+        <TabsContent value="generate">
+          <DynamicComponents.GenerateTab
+            fields={outputConfig.fields}
+            onBack={() => setActiveTab('output')}
+            onReset={() => {
+              setCurrentSession(null)
+              setSelectedFiles([])
+              setOutputConfig({ fields: [] })
+              setGeneratedReport(null)
+              setActiveTab('begin')
+            }}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

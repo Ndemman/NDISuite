@@ -33,6 +33,16 @@ export const DynamicSourcesTab = dynamicImport(
   <LoadingPlaceholder />
 );
 
+export const DynamicOutputConfigTab = dynamicImport(
+  () => import('./tabs/OutputConfigTab'),
+  <LoadingPlaceholder />
+);
+
+export const DynamicGenerateTab = dynamicImport(
+  () => import('./tabs/GenerateTab'),
+  <LoadingPlaceholder />
+);
+
 // Use lazy loading for components that are not needed immediately
 export const LazyAudioRecorder = lazyLoad(
   () => import('../audio/AudioRecorder'),
@@ -49,6 +59,8 @@ export const DynamicComponents = {
   BeginTab: DynamicBeginTab,
   DataTab: DynamicDataTab,
   SourcesTab: DynamicSourcesTab,
+  OutputConfigTab: DynamicOutputConfigTab,
+  GenerateTab: DynamicGenerateTab,
   AudioRecorder: LazyAudioRecorder,
   FileUploader: LazyFileUploader,
 };
