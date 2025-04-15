@@ -1,21 +1,23 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { OutputConfiguration, OutputConfigurationData } from '@/components/report-generator/output-configuration'
 import { RAGGenerator, RAGResult } from '@/components/report-generator/rag-generator'
 import { useSession, SessionData, SessionFile } from '@/contexts/session/session-context'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Separator } from '@/components/ui/separator'
-import { AlertCircle, ArrowRight, CheckCircle2, FileCheck, FileText, Mic, Upload } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, FileCheck, FileText, Mic, Upload, Loader2 } from 'lucide-react'
 
 export default function ReportGeneratorPage() {
   const { sessions, currentSession, setCurrentSession, updateSession, createSession } = useSession()
   const { toast } = useToast()
+  const searchParams = useSearchParams()
   
-  const [activeTab, setActiveTab] = useState('sources')
+  const [activeTab, setActiveTab] = useState('recording')
   const [selectedFiles, setSelectedFiles] = useState<SessionFile[]>([])
   const [outputConfig, setOutputConfig] = useState<OutputConfigurationData>({
     language: 'en',
@@ -23,6 +25,11 @@ export default function ReportGeneratorPage() {
     fields: []
   })
   const [generatedReport, setGeneratedReport] = useState<RAGResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showStartOptions, setShowStartOptions] = useState(true)
+  
+  // Initialize router for navigation
+  const router = useRouter()
   
   // Get in-progress sessions
   const inProgressSessions = sessions.filter(s => s.status === 'in-progress')
@@ -30,7 +37,7 @@ export default function ReportGeneratorPage() {
   // Handle session selection
   const handleSessionSelect = (session: SessionData) => {
     setCurrentSession(session)
-    setSelectedFiles(session.files)
+    setSelectedFiles(session.files || [])
     
     if (session.settings?.language) {
       setOutputConfig({
@@ -38,9 +45,19 @@ export default function ReportGeneratorPage() {
         outputFormat: session.settings.outputFormat || '',
         fields: session.settings.fields ? session.settings.fields.map(field => ({
           id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: field
+          name: field,
+          type: 'text' as const // Explicitly type as text field
         })) : []
       })
+    }
+    
+    // Determine the appropriate tab to show based on session state
+    if (session.type === 'recording' && session.content?.rawContent) {
+      setActiveTab('transcription')
+    } else if (session.files && session.files.length > 0) {
+      setActiveTab('sources')
+    } else {
+      setActiveTab('recording')
     }
     
     toast({
@@ -48,6 +65,104 @@ export default function ReportGeneratorPage() {
       description: `"${session.name}" has been loaded.`
     })
   }
+  
+  // Load session from URL parameter if available
+  useEffect(() => {
+    const loadSessionFromParam = async () => {
+      const sessionId = searchParams.get('session')
+      console.log('Session ID from URL:', sessionId)
+      
+      if (!sessionId) return
+      
+      setIsLoading(true)
+      
+      try {
+        // First try to find the session in the existing sessions
+        let session = sessions.find(s => s.id === sessionId)
+        
+        console.log('Found session:', session)
+        
+        // If session not found, create a mock session for development
+        if (!session && process.env.NODE_ENV === 'development') {
+          console.log('Creating mock session for development')
+          session = {
+            id: sessionId,
+            name: 'Development Test Report',
+            type: 'report',
+            status: 'in-progress',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            userId: 'dev-user-123',
+            files: [],
+            content: {
+              rawContent: 'This is a mock transcript for development testing. It simulates what would be received from a recording.'
+            },
+            settings: {
+              language: 'en',
+              outputFormat: 'NDIS Progress Report',
+              fields: ['Goals', 'Progress', 'Recommendations']
+            }
+          }
+        }
+        
+        if (session) {
+          // Set current session
+          setCurrentSession(session)
+          setSelectedFiles(session.files || [])
+          
+          // Set output configuration
+          if (session.settings?.language) {
+            setOutputConfig({
+              language: session.settings.language,
+              outputFormat: session.settings.outputFormat || '',
+              fields: session.settings.fields ? session.settings.fields.map(field => ({
+                id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: field,
+                type: 'text' as const
+              })) : []
+            })
+          }
+          
+          // Determine the appropriate tab to show based on session state
+          if (session.type === 'recording' && session.content?.rawContent) {
+            console.log('Setting tab to transcription')
+            setActiveTab('transcription')
+          } else if (session.files && session.files.length > 0) {
+            console.log('Setting tab to sources')
+            setActiveTab('sources')
+          } else {
+            console.log('Setting tab to recording')
+            setActiveTab('recording')
+          }
+          
+          toast({
+            title: "Session loaded",
+            description: `"${session.name}" has been loaded.`
+          })
+        } else {
+          console.error('Session not found:', sessionId)
+          toast({
+            title: "Session not found",
+            description: "The requested session could not be found.",
+            variant: "destructive"
+          })
+        }
+      } catch (error) {
+        console.error('Error loading session:', error)
+        toast({
+          title: "Error",
+          description: "There was an error loading the session.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadSessionFromParam()
+  }, [searchParams, sessions, setCurrentSession, setSelectedFiles, setOutputConfig, setActiveTab, toast])
+  
+
   
   // Handle file selection toggle
   const toggleFileSelection = (file: SessionFile) => {
@@ -111,9 +226,35 @@ export default function ReportGeneratorPage() {
   }
   
   // Determine if we can proceed to the next step
-  const canConfigureOutput = selectedFiles.length > 0
+  const canConfigureOutput = selectedFiles.length > 0 || (currentSession?.content?.rawContent && currentSession.content.rawContent.length > 0)
   const canGenerateReport = outputConfig.outputFormat !== ''
   
+  // Navigate to recording or upload page
+  const navigateToRecording = () => {
+    router.push('/dashboard/recordings/new')
+  }
+
+  const navigateToUpload = () => {
+    router.push('/dashboard/uploads')
+  }
+
+  // Show start options when first accessing the page and hide when a session is selected
+  // or when moving to other tabs
+  useEffect(() => {
+    // Always show start options when first loading the page with no session
+    if (!currentSession && activeTab === 'recording' && sessions.length === 0) {
+      setShowStartOptions(true)
+    } 
+    // Show start options when on recording tab with no active session
+    else if (!currentSession && activeTab === 'recording' && !searchParams.get('session')) {
+      setShowStartOptions(true)
+    }
+    // Hide options when a session is selected or on other tabs
+    else if (currentSession || activeTab !== 'recording') {
+      setShowStartOptions(false)
+    }
+  }, [currentSession, activeTab, sessions.length, searchParams])
+
   return (
     <div className="space-y-6">
       <div>
@@ -122,6 +263,47 @@ export default function ReportGeneratorPage() {
           Create AI-powered structured reports from your files and recordings
         </p>
       </div>
+
+      {/* Start Options - Record Audio and Upload Files buttons */}
+      {showStartOptions && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToRecording}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mic className="h-6 w-6 text-primary" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold">Record Audio</h3>
+                  <p className="text-sm text-muted-foreground">Start a new audio recording</p>
+                </div>
+                <Button variant="ghost" className="mt-2 group">
+                  Get Started
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card hover:bg-card/80 transition-colors cursor-pointer overflow-hidden border-2" onClick={navigateToUpload}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-primary" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold">Upload Files</h3>
+                  <p className="text-sm text-muted-foreground">Upload documents or audio files</p>
+                </div>
+                <Button variant="ghost" className="mt-2 group">
+                  Get Started
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       
       <Tabs 
         value={activeTab} 
@@ -129,15 +311,21 @@ export default function ReportGeneratorPage() {
         className="space-y-4"
       >
         <div className="flex justify-between items-center">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="recording">
+              Recording
+            </TabsTrigger>
+            <TabsTrigger value="transcription" disabled={!currentSession || !currentSession.files || currentSession.files.length === 0}>
+              Transcription
+            </TabsTrigger>
             <TabsTrigger value="sources" disabled={activeTab === 'output' && !canConfigureOutput}>
-              Select Sources
+              Sources
             </TabsTrigger>
             <TabsTrigger value="output" disabled={activeTab === 'generate' && !canGenerateReport || !canConfigureOutput}>
-              Configure Output
+              Configure
             </TabsTrigger>
             <TabsTrigger value="generate" disabled={!canGenerateReport}>
-              Generate Report
+              Generate
             </TabsTrigger>
           </TabsList>
           
@@ -148,6 +336,129 @@ export default function ReportGeneratorPage() {
             </div>
           )}
         </div>
+        
+        <TabsContent value="recording" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audio Recording</CardTitle>
+              <CardDescription>
+                Record your session audio directly or select existing recordings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col items-center space-y-6">
+                <div className="w-full bg-muted rounded-md p-4 flex items-center justify-center min-h-[200px]">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="flex items-center space-x-2"
+                    onClick={() => router.push('/dashboard/recordings/new')}
+                  >
+                    <Mic className="h-5 w-5" />
+                    <span>Start New Recording</span>
+                  </Button>
+                </div>
+                
+                <div className="w-full">
+                  <h3 className="text-lg font-medium mb-2">Recent Recordings</h3>
+                  {sessions
+                    .filter(s => s.type === 'recording' && s.status === 'completed')
+                    .slice(0, 3)
+                    .map(session => (
+                      <div 
+                        key={session.id}
+                        className="flex items-center p-3 border rounded-md mb-2 cursor-pointer hover:bg-accent"
+                        onClick={() => handleSessionSelect(session)}
+                      >
+                        <Mic className="h-4 w-4 mr-3 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="font-medium">{session.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(session.createdAt || Date.now()).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleSessionSelect(session)}>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  }
+                  
+                  {sessions.filter(s => s.type === 'recording' && s.status === 'completed').length === 0 && (
+                    <div className="text-center p-4 border border-dashed rounded-md">
+                      <p className="text-sm text-muted-foreground">No recordings available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              <Button 
+                onClick={() => setActiveTab('transcription')}
+                disabled={!currentSession}
+              >
+                Go to Transcription
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="transcription" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transcription</CardTitle>
+              <CardDescription>
+                View and edit your session transcription
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {currentSession?.content?.rawContent ? (
+                <div className="bg-muted rounded-md p-4 max-h-[400px] overflow-y-auto">
+                  <p className="whitespace-pre-wrap">{currentSession.content.rawContent}</p>
+                </div>
+              ) : (
+                <div className="bg-muted rounded-md p-4 min-h-[200px] flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p>No transcription available. Record or upload an audio file first.</p>
+                  </div>
+                </div>
+              )}
+              
+              {currentSession?.content?.rawContent && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Transcript Length:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {currentSession.content.rawContent.length.toLocaleString()} characters
+                    </p>
+                  </div>
+                  <div>
+                    <Button variant="outline" size="sm">
+                      Edit Transcript
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => setActiveTab('recording')}
+              >
+                Back to Recording
+              </Button>
+              <Button 
+                onClick={() => setActiveTab('sources')}
+                disabled={!currentSession?.content?.rawContent}
+              >
+                Select Additional Sources
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
         
         <TabsContent value="sources" className="space-y-4">
           <Card>
