@@ -81,3 +81,69 @@ export function formatFileSize(bytes: number): string {
   
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
+
+/**
+ * Memoize a function to cache its results
+ */
+export function memoize<T extends (...args: any[]) => any>(
+  fn: T,
+  getKey: (...args: Parameters<T>) => string = (...args) => JSON.stringify(args)
+): T {
+  const cache = new Map<string, ReturnType<T>>();
+  
+  return ((...args: Parameters<T>): ReturnType<T> => {
+    const key = getKey(...args);
+    if (cache.has(key)) {
+      return cache.get(key) as ReturnType<T>;
+    }
+    
+    const result = fn(...args);
+    cache.set(key, result);
+    return result;
+  }) as T;
+}
+
+/**
+ * Throttle a function to limit how often it can be called
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  
+  return function(...args: Parameters<T>): void {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+}
+
+/**
+ * Create a URL object from a string with error handling
+ */
+export function safeUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format time in seconds to MM:SS format
+ */
+export function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generate a unique ID
+ */
+export function generateId(prefix = ''): string {
+  return `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
