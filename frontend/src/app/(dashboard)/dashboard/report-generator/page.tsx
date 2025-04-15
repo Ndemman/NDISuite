@@ -17,7 +17,7 @@ export default function ReportGeneratorPage() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   
-  const [activeTab, setActiveTab] = useState('recording')
+  const [activeTab, setActiveTab] = useState('begin')
   const [selectedFiles, setSelectedFiles] = useState<SessionFile[]>([])
   const [outputConfig, setOutputConfig] = useState<OutputConfigurationData>({
     language: 'en',
@@ -242,15 +242,15 @@ export default function ReportGeneratorPage() {
   // or when moving to other tabs
   useEffect(() => {
     // Always show start options when first loading the page with no session
-    if (!currentSession && activeTab === 'recording' && sessions.length === 0) {
+    if (!currentSession && activeTab === 'begin' && sessions.length === 0) {
       setShowStartOptions(true)
     } 
-    // Show start options when on recording tab with no active session
-    else if (!currentSession && activeTab === 'recording' && !searchParams.get('session')) {
+    // Show start options when on begin tab with no active session
+    else if (!currentSession && activeTab === 'begin' && !searchParams.get('session')) {
       setShowStartOptions(true)
     }
     // Hide options when a session is selected or on other tabs
-    else if (currentSession || activeTab !== 'recording') {
+    else if (currentSession || activeTab !== 'begin') {
       setShowStartOptions(false)
     }
   }, [currentSession, activeTab, sessions.length, searchParams])
@@ -263,6 +263,12 @@ export default function ReportGeneratorPage() {
           Create AI-powered structured reports from your files and recordings
         </p>
       </div>
+
+      <Tabs 
+        value={activeTab} 
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
 
       {/* Start Options - Record Audio and Upload Files buttons */}
       {showStartOptions && (
@@ -304,16 +310,10 @@ export default function ReportGeneratorPage() {
           </Card>
         </div>
       )}
-      
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
         <div className="flex justify-between items-center">
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="recording">
-              Recording
+            <TabsTrigger value="begin">
+              Begin
             </TabsTrigger>
             <TabsTrigger value="transcription" disabled={!currentSession || !currentSession.files || currentSession.files.length === 0}>
               Transcription
@@ -337,7 +337,7 @@ export default function ReportGeneratorPage() {
           )}
         </div>
         
-        <TabsContent value="recording" className="space-y-4">
+        <TabsContent value="begin" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Audio Recording</CardTitle>
