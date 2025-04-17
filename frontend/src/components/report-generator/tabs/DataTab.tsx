@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, FileCheck, FileText, Loader2, Mic, Square, Save, Upload } from 'lucide-react'
@@ -58,7 +58,20 @@ export function DataTab({
   formatTime,
   canvasRef
 }: DataTabProps) {
+  // IMPORTANT: This component is now fully controlled by its parent
+  // All state is managed by the parent component, and this component
+  // only renders based on the props it receives
   const { toast } = useToast()
+  
+  // Use a ref to track if we've already saved this recording to prevent infinite loops
+  const savedRecordingRef = useRef(false);
+  
+  // Reset the saved flag when recording starts - this is the ONLY useEffect we need
+  useEffect(() => {
+    if (isRecording) {
+      savedRecordingRef.current = false;
+    }
+  }, [isRecording]);
   
   return (
     <Card>
@@ -167,19 +180,42 @@ export function DataTab({
                     
                     <Button 
                       onClick={() => {
-                        // Create a new session file
-                        const newFile: SessionFile = {
-                          id: `recording-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                          name: recordingTitle,
-                          type: 'audio/wav',
-                          size: 0, // This will be set by the parent component
-                          url: audioURL,
-                          transcription: transcript
+                        try {
+                          // Only proceed if we have the necessary data and haven't already saved
+                          if (!savedRecordingRef.current && audioURL && transcript) {
+                            // Mark as saved immediately to prevent duplicate saves
+                            savedRecordingRef.current = true;
+                            
+                            // Create a new session file with a stable ID
+                            const newFile: SessionFile = {
+                              id: `recording-${Date.now()}`,
+                              name: recordingTitle || 'Recording',
+                              type: 'audio/wav',
+                              size: 0, // Size will be calculated by the browser
+                              url: audioURL,
+                              transcription: transcript
+                            }
+                            
+                            // Save the recording
+                            onRecordingSave(newFile);
+                            
+                            // Navigate after a short delay
+                            setTimeout(() => {
+                              onContinue();
+                            }, 300);
+                          }
+                        } catch (error) {
+                          console.error('Error saving recording:', error);
+                          toast({
+                            variant: 'destructive',
+                            title: 'Error Saving',
+                            description: 'There was a problem saving your recording.'
+                          });
+                          // Reset the saved flag so the user can try again
+                          savedRecordingRef.current = false;
                         }
-                        
-                        onRecordingSave(newFile)
                       }}
-                      disabled={isTranscribing || !transcript}
+                      disabled={isTranscribing || !transcript || !audioURL || savedRecordingRef.current}
                     >
                       <Save className="mr-2 h-4 w-4" />
                       Save & Continue
@@ -254,9 +290,9 @@ export function DataTab({
                           <p className="text-xs text-muted-foreground">
                             {file.type} · {(file.size / 1024 / 1024).toFixed(2)} MB
                           </p>
-                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                    </div>
+                    <div className="flex items-center space-x-2">
                         {file.url && (
                           <Button 
                             variant="ghost" 
@@ -303,7 +339,8 @@ export function DataTab({
         </Button>
         <Button 
           onClick={onContinue}
-          disabled={selectedFiles.length === 0}
+          // Enable the button if there are files or if we have a completed recording
+          disabled={selectedFiles.length === 0 && !(audioURL && transcript && !isRecording && !isTranscribing)}
         >
           Continue to Sources
           <ArrowRight className="ml-2 h-4 w-4" />
