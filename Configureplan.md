@@ -603,6 +603,151 @@ We need to fix an infinite update loop in the DataTab component that's causing "
 - [x] Log detailed information about component state during errors
 - [x] Implement recovery mechanisms for error states
 
+## Integrate Advanced Audio Recorder into Report Generator
+
+### Overview
+We need to replace the current audio recorder in the Report Generator with the more advanced recorder from the Recordings page. This will provide a more consistent user experience and offer better audio visualization, transcription, and control features.
+
+### Implementation Steps
+
+#### 1. Create New Advanced Audio Recorder Component
+
+- [x] Create a new reusable component based on the NewRecordingPage implementation
+- [x] Extract the core recording functionality while making it adaptable for different contexts
+- [x] Ensure the component maintains the same visual style and functionality as the original
+
+#### 2. Implement Audio Visualization and Controls
+
+- [x] Add canvas-based audio visualization with waveform display
+- [x] Implement volume control slider for audio playback
+- [x] Add proper recording state management (recording, paused, stopped)
+- [x] Ensure timer display is accurate and responsive
+
+#### 3. Integrate Transcription Service
+
+- [x] Add automatic transcription functionality after recording stops
+- [x] Implement transcription status indicators and loading states
+- [x] Ensure transcription results are properly displayed and formatted
+- [x] Add error handling for transcription failures
+
+#### 4. Replace Current Audio Recorder in Report Generator
+
+- [x] Update the DataTab component to use the new advanced audio recorder
+- [x] Ensure proper data flow between the recorder and parent components
+- [x] Maintain compatibility with existing save and navigation functions
+- [x] Test the integration to ensure all features work correctly
+
+## Simplify Audio Recorder and Improve Button Layout
+
+### Overview
+Based on user feedback, we need to simplify the AdvancedAudioRecorder component by removing the preview and transcription functions, and arrange the "Save Recording" and "Continue to Sources" buttons side-by-side for better usability.
+
+### Implementation Steps
+
+#### 1. Simplify AdvancedAudioRecorder Component
+
+- [x] Remove audio preview functionality
+- [x] Remove transcription display and related features
+- [x] Streamline the component to focus only on recording functionality
+- [x] Update the component's props to reflect the simplified interface
+
+#### 2. Improve Button Layout
+
+- [x] Modify the Report Generator page to display action buttons side-by-side
+- [x] Ensure "Save Recording" and "Continue to Sources" buttons are aligned properly
+- [x] Maintain proper spacing and responsive behavior
+- [x] Update button styling for visual consistency
+
+#### 3. Update Integration in Report Generator
+
+- [x] Update the Report Generator page to use the simplified recorder
+- [x] Ensure all necessary functionality is preserved
+- [x] Test the modified component in the application
+- [ ] Verify that the simplified workflow meets user requirements
+
+## Fix Audio Recording Error
+
+### Overview
+The audio recorder is currently failing with an error when trying to start recording. We need to identify and fix the root cause of this issue to ensure the recording functionality works properly.
+
+### Implementation Steps
+
+#### 1. Diagnose the Error
+
+- [x] Check browser console logs to identify the specific error
+- [x] Inspect the error context to understand what's failing
+- [x] Verify if the issue is related to browser permissions or API access
+
+#### 2. Fix Audio Recording Initialization
+
+- [x] Update the audio recording initialization code to handle errors properly
+- [x] Add better error handling and user feedback for permission issues
+- [x] Ensure proper cleanup of audio resources
+
+#### 3. Test and Verify the Fix
+
+- [x] Test the recording functionality in different scenarios
+- [x] Verify that error messages are clear and helpful
+- [ ] Ensure the recording workflow works end-to-end
+
+## Fix Navigation to Sources Tab After Recording
+
+### Overview
+After a recording is completed and saved, the application should automatically navigate to the Sources tab. Currently, this navigation is not working correctly, and users remain on the Data tab after recording.
+
+### Implementation Steps
+
+#### 1. Diagnose the Navigation Issue
+
+- [x] Examine the current navigation flow after recording completion
+- [x] Identify where the navigation to Sources tab should be triggered
+- [x] Check if the navigation function is being called correctly
+
+#### 2. Fix the Navigation Logic
+
+- [x] Update the onSave and onContinue handlers in the AdvancedAudioRecorder component
+- [x] Ensure proper tab navigation after recording is saved
+- [x] Verify that the selectedFiles state is updated before navigation
+
+#### 3. Test the Navigation Flow
+
+- [x] Test the complete recording and navigation workflow
+- [x] Verify that recordings appear in the Sources tab after saving
+- [x] Ensure a smooth transition between tabs
+
+#### 4. Fix the Continue to Sources Button
+
+- [x] Diagnose why the Continue to Sources button doesn't save the recording
+- [x] Update the onContinue handler to properly save the recording first
+- [x] Ensure both Save Recording and Continue to Sources buttons work correctly
+
+## Fix RAG Output and Infinite Update Loop Issues
+
+### Overview
+There are two critical issues to address:
+1. The retrieval augmented generation (RAG) system is not properly using the configuration settings when generating output from audio recordings
+2. There are infinite update loop errors occurring in the application, likely due to improper useEffect dependencies
+
+### Implementation Steps
+
+#### 1. Diagnose the RAG Output Issue
+
+- [x] Examine how audio recording content is passed to the RAG system
+- [x] Verify how configuration settings are applied to the generation process
+- [x] Identify where the disconnect between configuration and generation occurs
+
+#### 2. Fix the RAG Integration
+
+- [x] Update the code to properly pass audio recording transcriptions to the RAG system
+- [x] Ensure configuration settings are correctly applied to all content types
+- [x] Implement proper error handling for RAG generation failures
+
+#### 3. Fix the Infinite Update Loop
+
+- [x] Identify components with useEffect hooks causing infinite updates
+- [x] Fix dependency arrays in problematic useEffect hooks
+- [x] Implement proper state management to prevent circular updates
+
 ## Detailed Implementation
 
 ### Step 1: RAG Service Implementation

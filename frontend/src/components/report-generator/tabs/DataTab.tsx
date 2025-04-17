@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { SessionFile } from '@/contexts/session/session-context'
 import { useToast } from '@/components/ui/use-toast'
+import { DynamicComponents } from '@/components/report-generator/DynamicComponents'
 
 interface DataTabProps {
   selectedOption: 'record' | 'upload' | null
@@ -85,145 +86,58 @@ export function DataTab({
       </CardHeader>
       <CardContent className="space-y-6">
         {selectedOption === 'record' ? (
-          // Recording Interface
+          // Recording Interface using AdvancedAudioRecorder
           <div>
-            <div className="bg-muted rounded-md p-6 flex flex-col items-center justify-center min-h-[200px]">
-              {!isRecording && !audioURL ? (
-                <div className="text-center space-y-4">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                    <Mic className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium">Start Recording</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Click the button below to start recording your session
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="recording-title">Recording Title</Label>
-                    <Input 
-                      id="recording-title" 
-                      placeholder="Enter a title for your recording" 
-                      value={recordingTitle}
-                      onChange={(e) => onRecordingTitleChange(e.target.value)}
-                      className="max-w-md mx-auto"
-                    />
-                  </div>
-                  <Button 
-                    onClick={onStartRecording} 
-                    className="bg-red-500 hover:bg-red-600 text-white"
-                    size="lg"
-                    disabled={!recordingTitle.trim()}
-                  >
-                    <Mic className="mr-2 h-4 w-4" />
-                    Start Recording
-                  </Button>
-                </div>
-              ) : isRecording ? (
-                <div className="w-full max-w-md space-y-4">
-                  <div className="relative w-full h-40 bg-black rounded-md overflow-hidden">
-                    <canvas 
-                      ref={canvasRef} 
-                      className="w-full h-full"
-                      width={800}
-                      height={160}
-                    />
-                    <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm font-mono">
-                      {formatTime(recordingTime)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-center">
-                    <Button 
-                      onClick={onStopRecording} 
-                      variant="destructive"
-                      size="lg"
-                    >
-                      <Square className="mr-2 h-4 w-4" />
-                      Stop Recording
-                    </Button>
-                  </div>
-                </div>
-              ) : audioURL ? (
-                <div className="w-full max-w-md space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">{recordingTitle}</h3>
-                    <audio 
-                      src={audioURL} 
-                      controls 
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  {isTranscribing ? (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 className="h-8 w-8 animate-spin mr-2" />
-                      <p>Transcribing your audio...</p>
-                    </div>
-                  ) : transcript ? (
-                    <div className="p-4 bg-muted rounded-md max-h-60 overflow-y-auto">
-                      <div className="flex items-center mb-2">
-                        <FileText className="h-4 w-4 mr-2" />
-                        <p className="font-medium">Transcription Result:</p>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{transcript}</p>
-                    </div>
-                  ) : null}
-                  
-                  <div className="flex justify-between">
-                    <Button 
-                      variant="outline" 
-                      onClick={onDiscardRecording}
-                    >
-                      Discard & Record Again
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => {
-                        try {
-                          // Only proceed if we have the necessary data and haven't already saved
-                          if (!savedRecordingRef.current && audioURL && transcript) {
-                            // Mark as saved immediately to prevent duplicate saves
-                            savedRecordingRef.current = true;
-                            
-                            // Create a new session file with a stable ID
-                            const newFile: SessionFile = {
-                              id: `recording-${Date.now()}`,
-                              name: recordingTitle || 'Recording',
-                              type: 'audio/wav',
-                              size: 0, // Size will be calculated by the browser
-                              url: audioURL,
-                              transcription: transcript
-                            }
-                            
-                            // Save the recording
-                            onRecordingSave(newFile);
-                            
-                            // Navigate after a short delay
-                            setTimeout(() => {
-                              onContinue();
-                            }, 300);
-                          }
-                        } catch (error) {
-                          console.error('Error saving recording:', error);
-                          toast({
-                            variant: 'destructive',
-                            title: 'Error Saving',
-                            description: 'There was a problem saving your recording.'
-                          });
-                          // Reset the saved flag so the user can try again
-                          savedRecordingRef.current = false;
-                        }
-                      }}
-                      disabled={isTranscribing || !transcript || !audioURL || savedRecordingRef.current}
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      Save & Continue
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <DynamicComponents.AdvancedAudioRecorder
+              initialTitle={recordingTitle}
+              onTitleChange={onRecordingTitleChange}
+              onRecordingComplete={(blob, duration) => {
+                // Create a URL for the blob
+                const url = URL.createObjectURL(blob);
+                
+                // Create a session file
+                const newFile: SessionFile = {
+                  id: `recording-${Date.now()}`,
+                  name: recordingTitle || 'New Recording',
+                  type: 'audio/wav',
+                  size: blob.size,
+                  url: url
+                }
+                
+                // Save the recording
+                onRecordingSave(newFile)
+                
+                toast({
+                  title: 'Recording saved',
+                  description: `Recording "${recordingTitle}" has been saved.`
+                })
+              }}
+              onSave={(blob, title) => {
+                // Create a URL for the blob
+                const url = URL.createObjectURL(blob);
+                
+                // Create a session file
+                const newFile: SessionFile = {
+                  id: `recording-${Date.now()}`,
+                  name: title || 'New Recording',
+                  type: 'audio/wav',
+                  size: blob.size,
+                  url: url
+                }
+                
+                // Save the recording
+                onRecordingSave(newFile)
+                
+                toast({
+                  title: 'Recording saved',
+                  description: `Recording "${title}" has been saved.`
+                })
+              }}
+              onContinue={onContinue}
+              showSaveButton={true}
+              showContinueButton={true}
+              className="p-4"
+            />
           </div>
         ) : (
           // File Upload Interface
@@ -337,14 +251,16 @@ export function DataTab({
         >
           Back to Begin
         </Button>
-        <Button 
-          onClick={onContinue}
-          // Enable the button if there are files or if we have a completed recording
-          disabled={selectedFiles.length === 0 && !(audioURL && transcript && !isRecording && !isTranscribing)}
-        >
-          Continue to Sources
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        {selectedOption === 'upload' && (
+          <Button 
+            onClick={onContinue}
+            // Enable the button if there are files
+            disabled={selectedFiles.length === 0}
+          >
+            Continue to Sources
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

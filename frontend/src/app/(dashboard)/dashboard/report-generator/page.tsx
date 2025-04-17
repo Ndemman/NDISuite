@@ -33,6 +33,7 @@ export default function ReportGeneratorPage() {
   })
   const [generatedReport, setGeneratedReport] = useState<RAGResult | null>(null)
   const [selectedOption, setSelectedOption] = useState<'record' | 'upload' | null>(null)
+  const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false)
   
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false)
@@ -152,30 +153,55 @@ export default function ReportGeneratorPage() {
   
   // Handle recording save
   const handleRecordingSave = (blob: Blob, duration: number) => {
+    // Validate the recording
+    if (!blob || blob.size === 0 || duration <= 0) {
+      console.warn('Invalid recording detected, ignoring save request');
+      return;
+    }
+    
+    // Generate a unique recording ID based on timestamp
+    const recordingId = `recording-${Date.now()}`;
+    
+    // Check if we already have a recording with this timestamp (within 1 second)
+    // This prevents duplicate recordings when the component unmounts/remounts
+    const isDuplicate = selectedFiles.some(file => {
+      const existingTimestamp = file.id.split('-')[1];
+      const newTimestamp = recordingId.split('-')[1];
+      return (
+        file.id.startsWith('recording-') && 
+        Math.abs(Number(existingTimestamp) - Number(newTimestamp)) < 1000
+      );
+    });
+    
+    if (isDuplicate) {
+      console.log('Duplicate recording detected, ignoring save request');
+      return;
+    }
+    
     // Create a URL for the audio blob
-    const url = URL.createObjectURL(blob)
-    setAudioURL(url)
-    setRecordingTime(duration)
+    const url = URL.createObjectURL(blob);
+    setAudioURL(url);
+    setRecordingTime(duration);
     
     // Create a file object for the recording
     const newFile: SessionFile = {
-      id: `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      id: `${recordingId}-${Math.random().toString(36).substring(2, 9)}`,
       name: recordingTitle || `Recording ${new Date().toLocaleTimeString()}`,
       type: 'audio/wav',
       size: blob.size,
       url: url
-    }
+    };
     
     // Add to selected files
-    setSelectedFiles(prev => [...prev, newFile])
+    setSelectedFiles(prev => [...prev, newFile]);
     
     toast({
       title: "Recording saved",
       description: "Your recording has been added to your session."
-    })
+    });
     
-    // Navigate to sources tab
-    setActiveTab('sources')
+    // Note: Navigation to sources tab is now handled in the onSave callback
+    // to ensure proper timing with state updates
   }
   
   // Toggle file selection
@@ -188,8 +214,11 @@ export default function ReportGeneratorPage() {
   }
   
   // Handle configuration saving
-  const handleConfigurationSave = (config: OutputConfigurationData) => {
+  const handleConfigurationSave = (config: OutputConfigurationData, autoGenerate: boolean = false) => {
     setOutputConfig(config)
+    
+    // Set flag to auto-generate when tab changes
+    setShouldAutoGenerate(autoGenerate)
     
     // Update current session if exists
     if (currentSession) {
@@ -343,18 +372,51 @@ export default function ReportGeneratorPage() {
                 <div className="mt-4 p-4 border rounded-md">
                   <h3 className="text-lg font-medium mb-2">Record Audio</h3>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="recording-title" className="text-sm font-medium">Recording Title</label>
-                      <input 
-                        id="recording-title" 
-                        className="w-full p-2 border rounded-md" 
-                        placeholder="Enter a title for your recording" 
-                        value={recordingTitle}
-                        onChange={(e) => setRecordingTitle(e.target.value)}
-                      />
-                    </div>
-                    <DynamicComponents.AudioRecorder 
-                      onRecordingComplete={handleRecordingSave}
+                    <DynamicComponents.AdvancedAudioRecorder 
+                      initialTitle={recordingTitle}
+                      onTitleChange={(title) => setRecordingTitle(title)}
+                      onRecordingComplete={(blob, duration) => {
+                        // Handle the recording completion
+                        if (blob) {
+                          handleRecordingSave(blob, duration);
+                        }
+                      }}
+                      onSave={(blob, title) => {
+                        // Update the recording title
+                        setRecordingTitle(title);
+                        // Save the recording
+                        if (blob) {
+                          // Estimate duration if not provided
+                          const estimatedDuration = blob.size / 16000;
+                          handleRecordingSave(blob, estimatedDuration);
+                          
+                          // Ensure navigation happens after state updates
+                          setTimeout(() => {
+                            setActiveTab('sources');
+                          }, 100);
+                        }
+                      }}
+                      onContinue={(blob, title) => {
+                        // First save the recording
+                        if (blob) {
+                          // Update the title
+                          setRecordingTitle(title || recordingTitle);
+                          
+                          // Estimate duration if not provided
+                          const estimatedDuration = blob.size / 16000;
+                          handleRecordingSave(blob, estimatedDuration);
+                          
+                          // Ensure navigation happens after state updates
+                          setTimeout(() => {
+                            setActiveTab('sources');
+                          }, 100);
+                        } else {
+                          // If no recording, just navigate
+                          setActiveTab('sources');
+                        }
+                      }}
+                      showSaveButton={true}
+                      showContinueButton={true}
                     />
                   </div>
                 </div>
@@ -487,12 +549,17 @@ export default function ReportGeneratorPage() {
         <TabsContent value="generate">
           <DynamicComponents.GenerateTab
             fields={outputConfig.fields}
-            onBack={() => setActiveTab('output')}
+            autoGenerate={shouldAutoGenerate}
+            onBack={() => {
+              setShouldAutoGenerate(false) // Reset the flag when going back
+              setActiveTab('output')
+            }}
             onReset={() => {
               setCurrentSession(null)
               setSelectedFiles([])
               setOutputConfig({ fields: [] })
               setGeneratedReport(null)
+              setShouldAutoGenerate(false)
               setActiveTab('begin')
             }}
           />
