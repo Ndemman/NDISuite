@@ -1,0 +1,13 @@
+Hello {{ user.first_name }},
+
+Thank you for registering with NDISuite Report Generator! To complete your registration and verify your email address, please visit the following link:
+
+{{ verification_url }}
+
+This verification link will expire in 72 hours.
+
+If you did not register for an NDISuite account, please disregard this email.
+
+--
+NDISuite
+This is an automated message, please do not reply to this email.

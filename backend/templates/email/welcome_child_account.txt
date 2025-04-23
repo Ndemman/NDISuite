@@ -1,0 +1,13 @@
+Hello {{ user.first_name }},
+
+Welcome to NDISuite! An account has been created for you by {{ parent.first_name }} {{ parent.last_name }} at {{ organization }}.
+
+You can now log in to NDISuite Report Generator using your email address and the password provided to you by your administrator.
+
+Login URL: {{ login_url }}
+
+If you have any questions about your account or permissions, please contact your organization administrator.
+
+--
+NDISuite
+This is an automated message, please do not reply to this email.
