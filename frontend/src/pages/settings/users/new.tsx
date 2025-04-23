@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { type UserData } from '@/api/authService';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -27,7 +28,7 @@ export default function CreateChildAccount() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
 
   const {
     register,

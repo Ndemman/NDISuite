@@ -1,0 +1,3 @@
+@echo off
+echo Starting NDISuite frontend...
+npm run dev

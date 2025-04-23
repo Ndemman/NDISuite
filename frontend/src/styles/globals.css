@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Refined light mode colors with more vibrant and modern feel */
+    --background: 220 25% 97%; /* Subtle blue-gray tint for better visual interest */
+    --foreground: 224 71% 4%; /* Nearly black text for crisp readability */
+    --card: 0 0% 100%;        /* Pure white cards for crisp contrast */
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 221 83% 53%;   /* Vibrant blue as primary accent - #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%; /* Lighter secondary with slight warmth */
+    --secondary-foreground: 224 71% 4%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8% 46%; /* More visible muted text with personality */
+    --accent: 221 83% 95%;    /* Very light primary-matched accent for highlights */
+    --accent-foreground: 221 83% 53%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;    /* Subtle but visible border color */
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;      /* Matching primary for focus states */
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    /* Refined dark mode with better contrast between elements */
+    --background: 222 47% 11%;   /* #1E1E2F - slightly blue-tinted dark background */
+    --foreground: 210 40% 98%;   /* Off-white text for better readability */
+    --card: 223 47% 15%;         /* #272B48 - slightly lighter than background */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;      /* #3B82F6 - Brighter blue for dark mode */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 223 47% 20%;    /* Slightly lighter than cards for layering */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 223 47% 20%;
+    --muted-foreground: 217 25% 70%; /* More visible muted text */
+    --accent: 223 47% 25%;       /* Distinct accent for UI elements */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 60.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 223 47% 20%;       /* Visible but not harsh borders */
+    --input: 223 47% 20%;
+    --ring: 224 76% 65%;         /* Brighter focus rings for accessibility */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Enhanced shadowing for depth on cards, buttons, etc. */
+.shadow-soft {
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.07),
+              0 4px 16px -8px rgba(0, 0, 0, 0.1);
+}
+
+/* Light mode specific shadows */
+:root .shadow-soft {
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04),
+              0 8px 16px -4px rgba(15, 23, 42, 0.06);
+}
+
+.shadow-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shadow-hover:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+              0 8px 16px -6px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Light mode hover effects */
+:root .shadow-hover:hover {
+  box-shadow: 0 10px 35px -5px rgba(15, 23, 42, 0.08), 
+              0 8px 20px -6px rgba(15, 23, 42, 0.06);
+}
+
+/* Custom styling for the NDISuite application */
+.ndisuite-layout {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.ndisuite-panel {
+  @apply bg-card rounded-lg shadow-soft border border-border/50;
+}
+
+.ndisuite-container {
+  @apply container mx-auto px-4 py-8;
+}
+
+/* Enhanced button styling */
+button, .btn {
+  @apply transition-all duration-200 active:scale-95;
+}
+
+/* Light mode specific tweaks */
+:root button.bg-primary:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.3);
+}
+
+/* Glass morphism effects for light mode */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Dashboard grid layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-territory {
+  @apply bg-card rounded-lg p-5 border border-border/80 transition-all duration-300 shadow-soft;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-territory::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, hsl(var(--primary)/0.8), hsl(var(--primary)/0.4));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.feature-territory:hover::before {
+  opacity: 1;
+}
+
+.coming-soon-overlay {
+  @apply absolute inset-0 bg-background bg-opacity-60 rounded-lg backdrop-blur-sm;
+  border: 1px solid hsl(var(--border)/50);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Audio visualizer styling - enhanced for modern appearance with subtle colors */
+.audio-visualizer {
+  height: 70px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 10%;
+  background: hsl(var(--muted)/30);
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border)/20);
+  overflow: hidden;
+}
+
+/* More subtle styling for inactive audio visualizer */
+.audio-visualizer-inactive {
+  height: 70px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10%;
+  background: hsl(var(--muted)/30);
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border)/20);
+  overflow: hidden;
+}
+
+.audio-visualizer .bar {
+  background: linear-gradient(to top, hsl(var(--primary)/20), hsl(var(--primary)/40));
+  width: 4px;
+  border-radius: 2px;
+  box-shadow: 0 0 2px hsla(var(--primary), 0.1);
+  animation: pulse 1.5s ease-in-out infinite;
+  height: 60%;
+}
+
+/* Stagger the animations for a more natural effect */
+.audio-visualizer .bar:nth-child(odd) {
+  animation-delay: 0.2s;
+}
+
+.audio-visualizer .bar:nth-child(3n) {
+  animation-delay: 0.3s;
+}
+
+.audio-visualizer .bar:nth-child(5n) {
+  animation-delay: 0.8s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scaleY(0.2);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(0.2);
+  }
+}

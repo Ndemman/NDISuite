@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ndisuite-config
+  namespace: ndisuite-staging
+data:
+  DJANGO_SETTINGS_MODULE: "ndisuite.settings"
+  DEBUG: "False"
+  ALLOWED_HOSTS: "staging.ndisuite.app,api.staging.ndisuite.app"
+  DATABASE_URL: "postgres://postgres:$(POSTGRES_PASSWORD)@postgres:5432/ndisuite"
+  REDIS_URL: "redis://redis:6379/0"
+  TRANSCRIPTION_MODEL: "whisper-1"
+  GENERATION_MODEL: "gpt-4-turbo"
+  EMBEDDING_MODEL: "text-embedding-3-large"
+  REFINING_MODEL: "gpt-4-turbo"
+  NEXT_PUBLIC_API_URL: "https://api.staging.ndisuite.app"
+  NEXT_PUBLIC_WS_HOST: "api.staging.ndisuite.app"

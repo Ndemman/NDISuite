@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ndisuite-backend
+  namespace: ndisuite-staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ndisuite-backend
+  template:
+    metadata:
+      labels:
+        app: ndisuite-backend
+    spec:
+      containers:
+      - name: backend
+        image: ndisuite/backend:latest
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: ndisuite-config
+        - secretRef:
+            name: ndisuite-secrets
+        readinessProbe:
+          httpGet:
+            path: /api/health/
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      - name: celery-worker
+        image: ndisuite/backend:latest
+        command: ["celery", "-A", "ndisuite", "worker", "-l", "INFO"]
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        envFrom:
+        - configMapRef:
+            name: ndisuite-config
+        - secretRef:
+            name: ndisuite-secrets
+      - name: celery-beat
+        image: ndisuite/backend:latest
+        command: ["celery", "-A", "ndisuite", "beat", "-l", "INFO"]
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        envFrom:
+        - configMapRef:
+            name: ndisuite-config
+        - secretRef:
+            name: ndisuite-secrets

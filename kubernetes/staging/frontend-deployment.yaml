@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ndisuite-frontend
+  namespace: ndisuite-staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ndisuite-frontend
+  template:
+    metadata:
+      labels:
+        app: ndisuite-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ndisuite/frontend:latest
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: ndisuite-config
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30

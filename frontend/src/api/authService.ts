@@ -26,7 +26,12 @@ export interface UserData {
   email: string;
   first_name: string;
   last_name: string;
+  job_title?: string;
   is_active: boolean;
+  account_type: 'PARENT' | 'CHILD' | 'LONE';
+  can_export_reports: boolean;
+  can_create_templates: boolean;
+  can_access_analytics: boolean;
   date_joined: string;
 }
 
