@@ -1,10 +1,23 @@
 import { useState, useEffect } from 'react';
-import { type UserData } from '@/api/authService';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Loader2, Plus, UserPlus, User, Settings, Shield, AlertTriangle } from 'lucide-react';
 import authService from '@/api/authService';
+
+interface UserData {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  job_title?: string;
+  is_active: boolean;
+  account_type: 'PARENT' | 'CHILD' | 'LONE';
+  can_export_reports: boolean;
+  can_create_templates: boolean;
+  can_access_analytics: boolean;
+  date_joined: string;
+}
 
 export default function UserManagement() {
   const router = useRouter();

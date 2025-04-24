@@ -27,10 +27,12 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/auth/', include('users.urls')),
     path('api/v1/reports/', include('reports.urls')),
     path('api/v1/files/', include('files.urls')),
     path('api/v1/transcription/', include('transcription.urls')),
+    
+    # Authentication
+    path('api/v1/auth/', include('ndisuite.auth_urls')),
     
     # API Documentation
     path('docs/', include_docs_urls(title='NDISuite API')),

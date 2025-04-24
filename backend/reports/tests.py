@@ -5,7 +5,8 @@ from rest_framework import status
 import uuid
 import json
 
-from users.models import CustomUser
+from django.contrib.auth import get_user_model
+CustomUser = get_user_model()
 from .models import Session, Template, Report, OutputField, ReportVersion
 
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { AppLayout } from '@/components/layout/AppLayout';
 import {
   Plus,
   Folder,
@@ -19,7 +20,15 @@ import {
   Mic,
   Upload,
 } from 'lucide-react';
-import { AppLayout } from '@/components/layout/AppLayout';
+
+// Define standardized icon sizes for dashboard components
+const ICON_SIZES = {
+  cardHeader: 18,       // Icons in feature card headers
+  actionButton: 16,     // Icons in action buttons
+  listItem: 16,         // Icons in list items
+  statusIndicator: 14,  // Icons in status indicators
+  smallIndicator: 14,   // Small icons (like in clients section)
+};
 
 // Mock data for sessions
 const MOCK_SESSIONS: Session[] = [
@@ -118,14 +127,20 @@ export default function Dashboard() {
   // Get unique report types for filtering
   const reportTypes = Array.from(new Set(sessions.map(session => session.type)));
   
-  // Format date for display
+  // Format date for display with dd/mm/yyyy hh:mm format
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    
+    // Format date as dd/mm/yyyy
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    // Format time as hh:mm
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
   
   // Handle creating a new report session
@@ -178,9 +193,10 @@ export default function Dashboard() {
   // Note: removed duplicate handleNewReport declaration that caused redeclare error
   
   return (
-    <>
+    <AppLayout>
       <Head>
         <title>Dashboard | NDISuite Report Generator</title>
+        <meta name="description" content="NDISuite report generator dashboard" />
       </Head>
       
       {/* Feature Territories */}
@@ -199,7 +215,7 @@ export default function Dashboard() {
               onClick={handleNewReport}
               className="flex items-center px-3 py-2 bg-primary/10 hover:bg-primary/15 text-primary transition-all duration-200 rounded-md text-sm font-medium shadow-sm"
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="mr-2" size={ICON_SIZES.actionButton} />
               New Report
             </button>
           </div>
@@ -273,7 +289,7 @@ export default function Dashboard() {
                       <tr key={session.id} className="hover:bg-muted/20 cursor-pointer transition-colors" onClick={() => router.push(`/reports/builder?id=${session.id}`)}>
                         <td className="px-3 py-4 truncate">
                           <div className="flex items-center">
-                            <FileText className="h-5 w-5 text-primary mr-3" />
+                            <FileText size={ICON_SIZES.listItem} className="text-primary mr-3" />
                             <div>
                               <div className="font-medium">{session.title}</div>
                               <div className="text-xs text-muted-foreground">
@@ -284,7 +300,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-3 py-4 truncate">
                           <div className="flex items-center">
-                            <User className="h-4 w-4 text-muted-foreground mr-2" />
+                            <User size={ICON_SIZES.smallIndicator} className="text-muted-foreground mr-2" />
                             <span>{session.client}</span>
                           </div>
                         </td>
@@ -293,7 +309,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-3 py-4 truncate text-sm">
                           <div className="flex items-center">
-                            <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                            <Clock size={ICON_SIZES.smallIndicator} className="text-muted-foreground mr-2" />
                             <span>{new Date(session.lastUpdated).toLocaleString()}</span>
                           </div>
                         </td>
@@ -323,7 +339,7 @@ export default function Dashboard() {
             </div>
           <div className="opacity-50">
             <h2 className="text-xl font-semibold flex items-center">
-              <Calendar className="mr-2 text-primary" size={22} />
+              <Calendar className="mr-2 text-primary" size={ICON_SIZES.cardHeader} />
               Scheduling
             </h2>
             <p className="text-muted-foreground text-sm mt-1">Manage appointments and reminders</p>
@@ -358,7 +374,7 @@ export default function Dashboard() {
             </div>
           <div className="opacity-50">
             <h2 className="text-xl font-semibold flex items-center">
-              <DollarSign className="mr-2 text-primary" size={22} />
+              <DollarSign className="mr-2 text-primary" size={ICON_SIZES.cardHeader} />
               Billing
             </h2>
             <p className="text-muted-foreground text-sm mt-1">Track payments and invoices</p>
@@ -393,7 +409,7 @@ export default function Dashboard() {
             </div>
           <div className="opacity-50">
             <h2 className="text-xl font-semibold flex items-center">
-              <Users className="mr-2 text-primary" size={22} />
+              <Users className="mr-2 text-primary" size={ICON_SIZES.cardHeader} />
               Clients
             </h2>
             <p className="text-muted-foreground text-sm mt-1">Manage client information</p>
@@ -402,7 +418,7 @@ export default function Dashboard() {
               {Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="border border-border rounded-md p-3 flex-1">
                   <div className="w-8 h-8 bg-muted rounded-full mb-2 flex items-center justify-center">
-                    <User size={16} />
+                    <User size={ICON_SIZES.smallIndicator} />
                   </div>
                   <div className="h-2 w-20 bg-muted rounded-full mb-2"></div>
                   <div className="h-2 w-16 bg-muted rounded-full"></div>
@@ -424,7 +440,7 @@ export default function Dashboard() {
             </div>
           <div className="opacity-50">
             <h2 className="text-xl font-semibold flex items-center">
-              <Users className="mr-2 text-primary" size={22} />
+              <Users className="mr-2 text-primary" size={ICON_SIZES.cardHeader} />
               Team Hub
             </h2>
             <p className="text-muted-foreground text-sm mt-1">Collaborate with your team</p>
@@ -442,6 +458,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </>
+    </AppLayout>
   );
 }

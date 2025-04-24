@@ -13,6 +13,7 @@ import {
   X,
   ExternalLink
 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 // Mock data for a complete report
 const MOCK_REPORT = {
@@ -583,3 +584,7 @@ export default function ReportPreview() {
     </div>
   );
 }
+
+ReportPreview.getLayout = (page: React.ReactNode) => {
+  return <AppLayout>{page}</AppLayout>;
+};

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Check
 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 // Mock data for report templates
 const TEMPLATES = [
@@ -595,3 +596,7 @@ export default function ReportBuilder() {
     </div>
   );
 }
+
+ReportBuilder.getLayout = (page: React.ReactNode) => {
+  return <AppLayout>{page}</AppLayout>;
+};

@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Files
 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 // Mock function for creating a session
 const createSession = async (data: { title: string; description: string }) => {
@@ -311,3 +312,7 @@ export default function NewReportPage() {
     </>
   );
 }
+
+NewReportPage.getLayout = (page: React.ReactNode) => {
+  return <AppLayout>{page}</AppLayout>;
+};

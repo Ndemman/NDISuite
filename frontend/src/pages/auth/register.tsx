@@ -61,11 +61,15 @@ export default function Register() {
         job_title: data.job_title || ''
       };
       
+      console.log('Sending registration data:', registerData);
       // Call the authentication service
       await authService.register(registerData);
       router.push('/auth/login?registered=true');
     } catch (err: any) {
-      console.error('Registration error:', err);
+      console.error('Registration error details:', err);
+      console.error('Response data:', err?.response?.data);
+      console.error('Error message:', err?.message);
+      console.error('Full error object:', JSON.stringify(err, null, 2));
       if (err?.response?.data?.detail) {
         setError(err.response.data.detail);
       } else if (err?.response?.data?.email) {

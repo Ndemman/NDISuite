@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, ArrowLeft, CheckCircle, AlertTriangle, UserX, Trash2 } from 'lucide-react';
 import authService from '@/api/authService';
-import { type UserData } from '@/api/authService';
 
 // Edit child account form schema
 const editUserSchema = z.object({
@@ -21,6 +20,20 @@ const editUserSchema = z.object({
 });
 
 type EditUserForm = z.infer<typeof editUserSchema>;
+
+interface UserData {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  job_title?: string;
+  is_active: boolean;
+  account_type: 'PARENT' | 'CHILD' | 'LONE';
+  can_export_reports: boolean;
+  can_create_templates: boolean;
+  can_access_analytics: boolean;
+  date_joined: string;
+}
 
 export default function EditUser() {
   const router = useRouter();

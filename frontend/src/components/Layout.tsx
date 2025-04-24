@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import Sidebar from './Sidebar';
 import authService from '@/api/authService';
+
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,7 +13,7 @@ const publicPages = ['/auth/login', '/auth/register', '/auth/password-reset', '/
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     // Check if we're on a public page
     const isPublicPage = publicPages.some(page => 
@@ -31,7 +31,8 @@ export default function Layout({ children }: LayoutProps) {
     
     setIsLoading(false);
   }, [router]);
-  
+
+
   // If we're still checking authentication, show a loading state
   if (isLoading) {
     return (
@@ -40,24 +41,21 @@ export default function Layout({ children }: LayoutProps) {
       </div>
     );
   }
-  
+
   // Check if we're on a public page
   const isPublicPage = publicPages.some(page => 
     router.pathname === page || router.pathname.startsWith(page)
   );
-  
+
   // If it's a public page, don't show the sidebar
   if (isPublicPage) {
     return <>{children}</>;
   }
-  
-  // Otherwise, show the layout with sidebar
+
+  // Render the layout without AppLayout to avoid nesting issues
   return (
-    <div className="flex min-h-screen bg-ndisuite-background">
-      <Sidebar />
-      <main className="flex-1 transition-all duration-300 md:ml-64 pt-16 md:pt-0">
-        {children}
-      </main>
+    <div className="min-h-screen bg-background">
+      {children}
     </div>
   );
 }

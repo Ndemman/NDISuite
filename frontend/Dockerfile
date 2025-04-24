@@ -27,20 +27,18 @@ WORKDIR /app
 
 ENV NODE_ENV production
 
-# Copy standalone Next.js server and static assets
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# Create and switch to non‑root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
-
+# Create a non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 USER nextjs
+
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Expose port
 EXPOSE 3000
 
-# Run the standalone server
+# Run the application
 CMD ["node", "server.js"]

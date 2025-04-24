@@ -18,36 +18,23 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 
 # Application definition
 INSTALLED_APPS = [
-    # Django apps
+    # Django core
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # Third-party apps
+
+    # Third-party (authentication packages removed)
     'rest_framework',
-    'rest_framework.authtoken',
-    'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
     'channels',
     'django_celery_beat',
     'django_celery_results',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    # Comment out health_check for local development
-    # 'health_check',
-    # 'health_check.db',
-    # 'health_check.cache',
-    # 'health_check.storage',
-    
-    # Local apps
-    'users',
+
+    # Local apps (custom users app removed for fresh start)
     'reports',
     'transcription',
     'files',
@@ -62,7 +49,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'ndisuite.urls'
@@ -87,16 +73,10 @@ WSGI_APPLICATION = 'ndisuite.wsgi.application'
 ASGI_APPLICATION = 'ndisuite.asgi.application'
 
 # Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'ndisuite'),
-        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -159,15 +139,15 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Custom user model
-AUTH_USER_MODEL = 'users.User'
+# Fresh start: rely on default User model; custom user model removed
+# AUTH_USER_MODEL = 'users.User'  # removed
 
 # Authentication settings
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'  # Change to 'mandatory' for production
+# ACCOUNT_EMAIL_REQUIRED = True
+# ACCOUNT_UNIQUE_EMAIL = True
+# ACCOUNT_USERNAME_REQUIRED = False
+# ACCOUNT_AUTHENTICATION_METHOD = 'email'
+# ACCOUNT_EMAIL_VERIFICATION = 'none'  # Change to 'mandatory' for production
 
 # Frontend URL for auth redirect links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
@@ -181,39 +161,36 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
-# REST Auth settings
-REST_AUTH = {
-    'USE_JWT': True,
-    'JWT_AUTH_COOKIE': 'auth-token',
-    'JWT_AUTH_REFRESH_COOKIE': 'refresh-token',
-}
-
-# REST Framework settings
+# REST Framework settings – allow public access until auth rebuilt
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
+# Authentication packages removed – keeping blocks commented out for reference
+# REST_AUTH = {}
+# SIMPLE_JWT = {}
+
 # JWT settings
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-}
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+#     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+#     'ROTATE_REFRESH_TOKENS': True,
+#     'BLACKLIST_AFTER_ROTATION': True,
+# }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins in development
+CORS_ALLOW_CREDENTIALS = True  # Allow credentials
+CORS_ALLOW_METHODS = ['*']  # Allow all methods
+CORS_ALLOW_HEADERS = ['*']  # Allow all headers
+
+# For specific origins if needed
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:62380,http://localhost:62380').split(',')
 
 # Celery settings
 CELERY_BROKER_URL = f"redis://{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/0"

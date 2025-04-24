@@ -1,11 +1,27 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 
 // Define base API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// For browser requests, we need to use localhost, not the Docker service name
+// When running in the browser (client-side), we need to use localhost
+const isBrowser = typeof window !== 'undefined';
+
+// Environment variable from Docker (will use backend:8000 in Docker context)
+let configuredUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+// For browser-side requests, ensure we use localhost instead of service names
+if (isBrowser && configuredUrl.includes('backend:')) {
+  configuredUrl = configuredUrl.replace('backend:', 'localhost:');
+}
+
+// Ensure URL has a trailing slash
+const API_URL = configuredUrl.endsWith('/') ? configuredUrl : `${configuredUrl}/`;
+
+// Log the API URL for debugging
+console.log('API URL configured as:', API_URL);
 
 // Create custom axios instance
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL,  // Use the configured API_URL with trailing slash management
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -110,9 +126,18 @@ export const apiGet = async <T>(url: string, config?: AxiosRequestConfig): Promi
 
 export const apiPost = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
   try {
+    console.log(`Making POST request to ${url}`, { data });
     const response = await apiClient.post<T>(url, data, config);
+    console.log(`POST request to ${url} successful`, { response });
     return response.data;
   } catch (error) {
+    console.error(`POST request to ${url} failed`, { error, requestData: data });
+    // If error is an AxiosError, extract and log the response data
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error status:', error.response.status);
+      console.error('Error headers:', error.response.headers);
+    }
     throw handleApiError(error);
   }
 };

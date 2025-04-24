@@ -3,17 +3,16 @@ Django>=4.2.0
 djangorestframework>=3.14.0
 django-cors-headers>=4.1.0
 django-filter>=23.2
-django-allauth>=0.54.0
-dj-rest-auth>=4.0.0
 channels>=4.0.0
 channels-redis>=4.1.0
+drf-yasg>=1.21.7
+coreapi>=2.3.3
 
 # ASGI Server
 uvicorn>=0.23.0
 gunicorn>=21.2.0
 
 # Database
-psycopg2-binary>=2.9.6
 pymongo>=4.4.0
 motor>=3.2.0
 redis>=4.6.0
@@ -53,15 +52,9 @@ beautifulsoup4>=4.12.2
 lxml>=4.9.2
 markdown>=3.4.3
 
-# JWT Authentication
-djangorestframework-simplejwt>=5.2.2
-
 # WebSockets
 websockets>=11.0.3
 
 # Export
 weasyprint>=59.0
 reportlab>=4.0.4
-
-# API Documentation
-drf_yasg>=1.21.5

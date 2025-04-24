@@ -8,7 +8,9 @@ import uuid
 import json
 from unittest.mock import patch, MagicMock
 
-from users.models import CustomUser
+from django.contrib.auth import get_user_model
+CustomUser = get_user_model()
+
 from reports.models import Session
 from .models import InputFile, ProcessedChunk
 
