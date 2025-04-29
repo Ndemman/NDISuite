@@ -70,7 +70,36 @@ export const reportsService = {
    * Create a new session
    */
   createSession: async (sessionData: Partial<Session>): Promise<Session> => {
-    return await apiPost<Session>('/reports/sessions/', sessionData);
+    try {
+      console.log('Creating session with data:', sessionData);
+      
+      // For direct fetch to work around potential network issues in development
+      if (typeof window !== 'undefined') {
+        const response = await fetch('/api/v1/reports/sessions/', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dev-access-token'}`
+          },
+          body: JSON.stringify(sessionData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Session creation API error:', errorData);
+          throw new Error(JSON.stringify(errorData));
+        }
+        
+        return await response.json();
+      }
+      
+      // Fallback to apiPost
+      return await apiPost<Session>('/reports/sessions/', sessionData);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
   },
   
   /**

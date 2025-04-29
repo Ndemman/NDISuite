@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from celery import shared_task
 from .models import InputFile
 from .services import DocumentProcessingService
@@ -18,8 +19,9 @@ def process_file_task(file_id):
         # Create document processing service
         service = DocumentProcessingService()
         
-        # Process the file
-        success = service.process_file(file_obj)
+        # Process the file using asyncio to handle the async method
+        loop = asyncio.get_event_loop()
+        success = loop.run_until_complete(service.process_file(file_obj))
         
         # Clean up resources
         service.cleanup()

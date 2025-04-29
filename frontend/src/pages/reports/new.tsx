@@ -9,20 +9,25 @@ import {
   X, 
   Check, 
   AlertTriangle,
-  Files
+  Files,
+  Loader
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import filesService from '@/api/filesService';
+import reportsService from '@/api/reportsService';
 
 // Mock function for creating a session
 const createSession = async (data: { title: string; description: string }) => {
   // In a real implementation, this would make an API call
-  return {
-    id: 'new-session-' + Date.now(),
-    title: data.title,
-    description: data.description,
-    status: 'draft',
-    created_at: new Date().toISOString()
-  };
+  try {
+    return await reportsService.createSession({
+      title: data.title,
+      description: data.description,
+    });
+  } catch (error) {
+    console.error('Error in createSession:', error);
+    throw error;
+  }
 };
 
 export default function NewReportPage() {
@@ -35,6 +40,9 @@ export default function NewReportPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+  const [uploadErrors, setUploadErrors] = useState<{[key: string]: string}>({});
   
   // Create a new session when the component loads
   useEffect(() => {
@@ -51,6 +59,11 @@ export default function NewReportPage() {
         
         console.log('Session created:', session);
       } catch (error) {
+        // Don't show error for cancelled requests
+        if (error instanceof Error && error.message === 'cancelled') {
+          console.log('Session creation was cancelled');
+          return;
+        }
         console.error('Error creating session:', error);
       } finally {
         setIsCreating(false);
@@ -107,17 +120,82 @@ export default function NewReportPage() {
   };
   
   // Handle file upload
-  const handleUploadFiles = () => {
-    // In a real implementation, we would upload the files first
-    // After successful upload, navigate to the report builder page for this session
-    if (sessionId) {
-      router.push(`/reports/builder?id=${sessionId}`);
+  const handleUploadFiles = async () => {
+    if (!sessionId || uploadedFiles.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadErrors({});
+    
+    try {
+      // Upload each file and track progress
+      const uploadPromises = uploadedFiles.map(async (file) => {
+        try {
+          // Track progress for this file
+          const trackProgress = (progress: { progress: number, status: string, message?: string }) => {
+            setUploadProgress(prev => ({
+              ...prev,
+              [file.name]: progress.progress
+            }));
+          };
+          
+          // Upload the file
+          await filesService.uploadFile(sessionId, file, trackProgress);
+          return true;
+        } catch (error) {
+          // Don't treat cancelled requests as errors
+          if (error instanceof Error && error.message === 'cancelled') {
+            console.log(`Upload for ${file.name} was cancelled`);
+            return true;
+          }
+          
+          // Handle other errors
+          console.error(`Error uploading file ${file.name}:`, error);
+          setUploadErrors(prev => ({
+            ...prev,
+            [file.name]: error instanceof Error ? error.message : 'Unknown error'
+          }));
+          throw error;
+        }
+      });
+      
+      // Wait for all uploads to complete
+      const uploadResults = await Promise.allSettled(uploadPromises);
+      
+      // Check if any uploads failed
+      const allSucceeded = uploadResults.every(result => result.status === 'fulfilled');
+      
+      if (allSucceeded) {
+        // Navigate to the report builder page
+        router.push(`/reports/builder?id=${sessionId}`);
+      } else {
+        console.error('Some files failed to upload');
+      }
+    } catch (error) {
+      console.error('Error in handleUploadFiles:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
   
-  // Handle removing a file from the list
+  // Handle removing a file from the selection
   const handleRemoveFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    
+    // Clear any upload progress or errors for this file
+    const fileToRemove = uploadedFiles[index];
+    if (fileToRemove) {
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[fileToRemove.name];
+        return newProgress;
+      });
+      
+      setUploadErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fileToRemove.name];
+        return newErrors;
+      });
+    }
   };
 
   return (
@@ -275,19 +353,39 @@ export default function NewReportPage() {
                   <ul className="space-y-3 mb-6">
                     {uploadedFiles.map((file, index) => (
                       <li key={index} className="flex items-center justify-between bg-background/80 p-3 rounded-md border border-border shadow-sm group hover:border-primary/20">
-                        <div className="flex items-center">
+                        <div className="flex items-center flex-1">
                           <File className="h-5 w-5 mr-3 text-primary" />
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-medium">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(file.size / 1024).toFixed(1)} KB
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </p>
+                              
+                              {/* Show error message if this file has an error */}
+                              {uploadErrors[file.name] && (
+                                <p className="text-xs text-destructive ml-2">
+                                  Error: {uploadErrors[file.name]}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Show progress bar during upload */}
+                            {isUploading && uploadProgress[file.name] !== undefined && (
+                              <div className="w-full mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary transition-all duration-300 ease-in-out"
+                                  style={{ width: `${uploadProgress[file.name]}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                         <button 
                           onClick={() => handleRemoveFile(index)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Remove file"
+                          disabled={isUploading}
                         >
                           <X className="h-5 w-5" />
                         </button>
@@ -298,10 +396,19 @@ export default function NewReportPage() {
                   <button
                     onClick={handleUploadFiles}
                     className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 shadow-sm flex items-center justify-center"
-                    disabled={uploadedFiles.length === 0}
+                    disabled={uploadedFiles.length === 0 || isUploading}
                   >
-                    <Upload className="h-5 w-5 mr-2" />
-                    Upload Files
+                    {isUploading ? (
+                      <>
+                        <Loader className="h-5 w-5 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 mr-2" />
+                        Upload Files
+                      </>
+                    )}
                   </button>
                 </div>
               )}

@@ -57,7 +57,7 @@ export const filesService = {
   ): Promise<InputFile> => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('session_id', sessionId);
+    formData.append('session', sessionId);
     formData.append('title', file.name);
     
     // Track upload progress if callback provided
@@ -74,7 +74,7 @@ export const filesService = {
       }
     } : undefined;
     
-    return await apiPost<InputFile>('/files/upload/', formData, {
+    return await apiPost<InputFile>('/files/files/', formData, {
       ...config,
       headers: {
         'Content-Type': 'multipart/form-data',

@@ -12,9 +12,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-temporary-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = True
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django_celery_results',
 
     # Local apps (custom users app removed for fresh start)
+    'ndisuite',  # Core app for auth and email verification
     'reports',
     'transcription',
     'files',
@@ -45,8 +46,10 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # Replace standard CSRF middleware with our custom one
+    'ndisuite.csrf.BrowserPreviewCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'ndisuite.middleware.CleanInvalidUserSessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -153,13 +156,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 
 # Email settings
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ndisuite.com')
-EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+# For development (prints emails to console)
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("DEBUG MODE: Emails will be output to console")
+# For production (uses Outlook SMTP)
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp-mail.outlook.com'  # Outlook SMTP server
+    EMAIL_PORT = 587  # Port for TLS
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')  # Outlook email address
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Outlook email password
+
+# Email settings common to both environments
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ndisuite.app')
 
 # REST Framework settings – allow public access until auth rebuilt
 REST_FRAMEWORK = {
@@ -168,6 +179,11 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'ndisuite.dev_auth.DevelopmentAuthentication',  # Development authentication
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
@@ -184,13 +200,44 @@ REST_FRAMEWORK = {
 # }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins in development
-CORS_ALLOW_CREDENTIALS = True  # Allow credentials
-CORS_ALLOW_METHODS = ['*']  # Allow all methods
-CORS_ALLOW_HEADERS = ['*']  # Allow all headers
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # For specific origins if needed
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:62380,http://localhost:62380').split(',')
+
+# CSRF settings - allow requests from browser preview proxy
+# Our custom middleware will dynamically add origins with localhost/127.0.0.1
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1:53737',  # Browser preview proxy port
+    'http://localhost:53737',
+]
+CSRF_COOKIE_SAMESITE = None  # Allow cross-site cookies for development
+CSRF_USE_SESSIONS = True  # Store CSRF token in the session instead of cookie
+CSRF_COOKIE_SECURE = False  # Don't require HTTPS in development
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access the cookie
+CSRF_FAILURE_VIEW = 'ndisuite.views.csrf_failure'  # Custom CSRF failure view
 
 # Celery settings
 CELERY_BROKER_URL = f"redis://{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/0"
@@ -221,6 +268,36 @@ TRANSCRIPTION_MODEL = os.environ.get('TRANSCRIPTION_MODEL', 'whisper-1')
 GENERATION_MODEL = os.environ.get('GENERATION_MODEL', 'gpt-4-turbo')
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'text-embedding-3-large')
 REFINING_MODEL = os.environ.get('REFINING_MODEL', 'gpt-4-turbo')
+
+# OAuth settings for social authentication
+# Frontend URL for building OAuth callback URLs
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+
+# Google OAuth settings
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_OAUTH_REDIRECT_URI = f"{os.environ.get('BACKEND_URL', 'http://localhost:8000')}/api/v1/auth/social/google/callback/"
+
+# Microsoft OAuth settings
+MICROSOFT_OAUTH_CLIENT_ID = os.environ.get('MICROSOFT_OAUTH_CLIENT_ID', '')
+MICROSOFT_OAUTH_CLIENT_SECRET = os.environ.get('MICROSOFT_OAUTH_CLIENT_SECRET', '')
+MICROSOFT_OAUTH_REDIRECT_URI = f"{os.environ.get('BACKEND_URL', 'http://localhost:8000')}/api/v1/auth/social/microsoft/callback/"
+
+# OAuth scopes
+GOOGLE_OAUTH_SCOPES = ['email', 'profile', 'openid']
+MICROSOFT_OAUTH_SCOPES = ['openid', 'email', 'profile', 'User.Read']
+
+# OAuth security settings
+# Set to a list of domains to restrict social login to specific email domains
+# Leave as None to allow all domains
+ALLOWED_EMAIL_DOMAINS = os.environ.get('ALLOWED_EMAIL_DOMAINS', '').split(',') if os.environ.get('ALLOWED_EMAIL_DOMAINS') else None
+
+# Provider-specific domain restrictions
+ALLOWED_GOOGLE_EMAIL_DOMAINS = os.environ.get('ALLOWED_GOOGLE_EMAIL_DOMAINS', '').split(',') if os.environ.get('ALLOWED_GOOGLE_EMAIL_DOMAINS') else None
+ALLOWED_MICROSOFT_EMAIL_DOMAINS = os.environ.get('ALLOWED_MICROSOFT_EMAIL_DOMAINS', '').split(',') if os.environ.get('ALLOWED_MICROSOFT_EMAIL_DOMAINS') else None
+
+# Whether to enforce email domain restrictions
+ENFORCE_EMAIL_DOMAIN_RESTRICTIONS = os.environ.get('ENFORCE_EMAIL_DOMAIN_RESTRICTIONS', 'False').lower() == 'true'
 
 # LangChain settings
 VECTOR_STORE_TYPE = os.environ.get('VECTOR_STORE_TYPE', 'chroma')

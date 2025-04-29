@@ -63,11 +63,18 @@ def generate_report_task(report_id):
         # Get document chunks from session files
         file_ids = [str(file.id) for file in session.files.all()]
         
+        # Log the file_ids for debugging
+        logger.info(f"Files found for session {session.id}: {file_ids}")
+        
+        # Skip retrieval if no files are available
+        if not file_ids:
+            logger.warning(f"No files found for session {session.id}, RAG will not be used")
+        
         # Create retriever with metadata filter for session files
         retriever = vector_store.as_retriever(
             search_kwargs={
                 "k": 5,
-                "filter": {"file_id": {"$in": file_ids}}
+                "filter": {"file_id": {"$in": file_ids}} if file_ids else None
             }
         )
         
@@ -119,10 +126,24 @@ def generate_report_task(report_id):
             if transcripts:
                 context += "TRANSCRIPTS:\n" + "\n---\n".join(transcripts) + "\n\n"
             
-            retrieved_docs = retriever.get_relevant_documents(prompt)
+            # Only attempt RAG retrieval if we have files
+            retrieved_docs = []
+            if file_ids:
+                try:
+                    # Log retrieval attempt
+                    logger.info(f"Attempting to retrieve documents for prompt: {prompt[:100]}...")
+                    retrieved_docs = retriever.get_relevant_documents(prompt)
+                    logger.info(f"Retrieved {len(retrieved_docs)} documents")
+                except Exception as e:
+                    logger.error(f"Error during RAG retrieval: {str(e)}")
+            else:
+                logger.warning("Skipping RAG retrieval - no files available")
+                
             if retrieved_docs:
                 context += "RELEVANT DOCUMENTS:\n"
                 for i, doc in enumerate(retrieved_docs):
+                    # Log metadata to help debug
+                    logger.info(f"Doc {i} metadata: {doc.metadata}")
                     context += f"Document {i+1}:\n{doc.page_content}\n---\n"
             
             # Generate content with OpenAI

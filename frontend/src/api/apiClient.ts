@@ -1,23 +1,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 
-// Define base API URL
-// For browser requests, we need to use localhost, not the Docker service name
-// When running in the browser (client-side), we need to use localhost
-const isBrowser = typeof window !== 'undefined';
+// Set the base URL for API requests
+// Using the Next.js API proxy instead of direct backend URL
+const API_URL = '/api/v1/';
 
-// Environment variable from Docker (will use backend:8000 in Docker context)
-let configuredUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-
-// For browser-side requests, ensure we use localhost instead of service names
-if (isBrowser && configuredUrl.includes('backend:')) {
-  configuredUrl = configuredUrl.replace('backend:', 'localhost:');
-}
-
-// Ensure URL has a trailing slash
-const API_URL = configuredUrl.endsWith('/') ? configuredUrl : `${configuredUrl}/`;
-
-// Log the API URL for debugging
-console.log('API URL configured as:', API_URL);
+// For debugging in development
+console.log('Using proxied API base URL:', API_URL);
 
 // Create custom axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -29,16 +17,53 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 30000, // 30 seconds timeout
 });
 
+// Create a source map to store cancellation tokens
+const cancelTokens = new Map<string, AbortController>();
+
+// Helper to generate a unique request ID
+const getRequestId = (url: string, method: string) => `${method}:${url}:${Date.now()}`;
+
+// Helper to cancel previous requests to the same endpoint
+const cancelPreviousRequests = (url: string, method: string) => {
+  // Create a pattern to match similar requests (same URL and method)
+  const pattern = `${method}:${url}`;
+  
+  // Find and cancel any matching previous requests
+  for (const [key, controller] of cancelTokens.entries()) {
+    if (key.startsWith(pattern)) {
+      controller.abort();
+      cancelTokens.delete(key);
+    }
+  }
+};
+
 // Request interceptor for adding the auth token
 apiClient.interceptors.request.use(
   (config) => {
     // Get token from localStorage if it exists
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    let token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     
-    // If token exists, add it to the headers
-    if (token && config.headers) {
+    // For development purposes, use a fallback token if no token exists
+    if (!token) {
+      token = 'dev-access-token'; // This will be used during development only
+      // Store it in localStorage for future requests
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_token', token);
+      }
+    }
+    
+    // Add token to the headers
+    if (config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // Cancel previous requests to the same endpoint
+    cancelPreviousRequests(config.url!, config.method!);
+    
+    // Create a new AbortController for the current request
+    const controller = new AbortController();
+    config.signal = controller.signal;
+    cancelTokens.set(getRequestId(config.url!, config.method!), controller);
     
     return config;
   },
@@ -50,9 +75,21 @@ apiClient.interceptors.request.use(
 // Response interceptor for handling common errors
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
+    // Remove the request from the cancellation map
+    const requestId = getRequestId(response.config.url!, response.config.method!);
+    cancelTokens.delete(requestId);
+    
     return response;
   },
   async (error: AxiosError) => {
+    // Handle cancelled requests - don't propagate them as errors
+    if (error.code === 'ERR_CANCELED') {
+      console.log('Request was cancelled - suppressing error');
+      // Return a resolved promise with a special cancelled flag
+      // This prevents the error from propagating to the catch block
+      return Promise.resolve({ data: { cancelled: true }, status: 200 });
+    }
+    
     const originalRequest = error.config;
     
     // Handle 401 Unauthorized errors (expired token)
@@ -118,6 +155,14 @@ apiClient.interceptors.response.use(
 export const apiGet = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
   try {
     const response = await apiClient.get<T>(url, config);
+    
+    // Check if this is a cancelled request that was converted to a success response
+    if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
+      console.log(`GET request to ${url} was cancelled`);
+      // @ts-ignore - We know this is safe because we checked for the cancelled property
+      return response.data as T;
+    }
+    
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -128,9 +173,23 @@ export const apiPost = async <T>(url: string, data?: any, config?: AxiosRequestC
   try {
     console.log(`Making POST request to ${url}`, { data });
     const response = await apiClient.post<T>(url, data, config);
+    
+    // Check if this is a cancelled request that was converted to a success response
+    if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
+      console.log(`POST request to ${url} was cancelled`);
+      // @ts-ignore - We know this is safe because we checked for the cancelled property
+      return response.data as T;
+    }
+    
     console.log(`POST request to ${url} successful`, { response });
     return response.data;
   } catch (error) {
+    // Don't log cancelled requests as errors
+    if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
+      console.log(`POST request to ${url} was cancelled`);
+      throw new Error('cancelled');
+    }
+    
     console.error(`POST request to ${url} failed`, { error, requestData: data });
     // If error is an AxiosError, extract and log the response data
     if (axios.isAxiosError(error) && error.response) {
@@ -145,6 +204,14 @@ export const apiPost = async <T>(url: string, data?: any, config?: AxiosRequestC
 export const apiPut = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
   try {
     const response = await apiClient.put<T>(url, data, config);
+    
+    // Check if this is a cancelled request that was converted to a success response
+    if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
+      console.log(`PUT request to ${url} was cancelled`);
+      // @ts-ignore - We know this is safe because we checked for the cancelled property
+      return response.data as T;
+    }
+    
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -154,6 +221,14 @@ export const apiPut = async <T>(url: string, data?: any, config?: AxiosRequestCo
 export const apiPatch = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
   try {
     const response = await apiClient.patch<T>(url, data, config);
+    
+    // Check if this is a cancelled request that was converted to a success response
+    if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
+      console.log(`PATCH request to ${url} was cancelled`);
+      // @ts-ignore - We know this is safe because we checked for the cancelled property
+      return response.data as T;
+    }
+    
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -163,6 +238,14 @@ export const apiPatch = async <T>(url: string, data?: any, config?: AxiosRequest
 export const apiDelete = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
   try {
     const response = await apiClient.delete<T>(url, config);
+    
+    // Check if this is a cancelled request that was converted to a success response
+    if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
+      console.log(`DELETE request to ${url} was cancelled`);
+      // @ts-ignore - We know this is safe because we checked for the cancelled property
+      return response.data as T;
+    }
+    
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -171,6 +254,12 @@ export const apiDelete = async <T>(url: string, config?: AxiosRequestConfig): Pr
 
 // Function to handle API errors and extract error messages
 export const handleApiError = (error: unknown): Error => {
+  // Handle cancelled requests gracefully
+  if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
+    console.log('Request was cancelled');
+    return new Error('cancelled');
+  }
+
   if (axios.isAxiosError(error)) {
     const serverError = error.response?.data;
     // Return the error message from the server if available
