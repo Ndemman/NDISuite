@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from './apiClient';
+import { authHeader } from '../utils/authUtils';
 
 export interface Session {
   id: string;
@@ -80,7 +81,7 @@ export const reportsService = {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dev-access-token'}`
+            ...authHeader()
           },
           body: JSON.stringify(sessionData)
         });
@@ -94,7 +95,7 @@ export const reportsService = {
         return await response.json();
       }
       
-      // Fallback to apiPost
+      // Fallback to apiPost with proper auth headers
       return await apiPost<Session>('/reports/sessions/', sessionData);
     } catch (error) {
       console.error('Error creating session:', error);
