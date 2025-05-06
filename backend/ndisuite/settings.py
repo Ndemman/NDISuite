@@ -14,7 +14,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-temporary-dev-key-cha
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'backend']
 
 # Application definition
 INSTALLED_APPS = [
@@ -337,9 +337,11 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:53737',  # Browser preview proxy port
     'http://localhost:53737',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
 ]
 CSRF_COOKIE_SAMESITE = None  # Allow cross-site cookies for development
-CSRF_USE_SESSIONS = True  # Store CSRF token in the session instead of cookie
+CSRF_USE_SESSIONS = False  # Store CSRF token in the session instead of cookie
 CSRF_COOKIE_SECURE = False  # Don't require HTTPS in development
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access the cookie
 CSRF_FAILURE_VIEW = 'ndisuite.views.csrf_failure'  # Custom CSRF failure view

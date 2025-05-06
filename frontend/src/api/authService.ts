@@ -1,6 +1,14 @@
 import { apiPost } from './apiClient';
 import { v4 as uuidv4 } from 'uuid';
 
+// Helper to read a cookie by name
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(
+    new RegExp('(^|; )' + name + '=([^;]+)')
+  );
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -62,12 +70,24 @@ export const authService = {
     try {
       console.log('Attempting login with credentials:', { email: credentials.email });
 
+      // First make a GET request to set the CSRF cookie
+      await fetch('/api/v1/auth/login/', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      // Get CSRF token using the helper function
+      const csrfToken = getCookie('csrftoken') || '';
+      console.log('CSRF Token retrieved:', csrfToken ? 'Yes' : 'No');
+
       // Make sure to use URL with trailing slash for Django compatibility
       const response = await fetch('/api/v1/auth/login/', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'X-CSRFToken': csrfToken,
         },
         body: JSON.stringify(credentials),
       });
@@ -78,13 +98,18 @@ export const authService = {
         throw new Error('Invalid email or password.');
       }
 
-      // Parse the django-allauth response which returns a key and maybe user data
+      // Parse the auth response which may have different formats depending on backend configuration
       const responseData = await response.json();
+      console.log('Raw login response:', responseData);
       
       // Convert to our internal LoginResponse format
+      // Handle both possible response formats:
+      // 1. dj-rest-auth default format: { key: "token_value" }
+      // 2. dj-rest-auth with JWT: { access: "token_value", refresh: "refresh_token" }
       const data: LoginResponse = {
         tokens: {
-          access: responseData.key,  // The key is the access token
+          // Accept either key (standard token) or access (JWT token) format
+          access: responseData.key || responseData.access || '',
           refresh: responseData.refresh || '' // Refresh token if available
         },
         user: responseData.user || {

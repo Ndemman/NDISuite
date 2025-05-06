@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000/api/v1';
+// Prefer API_URL inside Docker, then browser var, then localhost fallback
+const API_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000/api/v1';
 
 const nextConfig = {
   reactStrictMode: true,

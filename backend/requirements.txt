@@ -38,8 +38,8 @@ langchain>=0.1.0
 langchain-openai>=0.1.0
 langchain-community>=0.0.10
 chromadb>=0.4.13
-google-generativeai==0.4.0
-langchain-google-genai>=0.0.2
+google-generativeai>=0.8.0
+langchain-google-genai>=0.1.10
 
 # Document Processing
 PyMuPDF>=1.22.3
@@ -58,6 +58,7 @@ beautifulsoup4>=4.12.2
 lxml>=4.9.2
 markdown>=3.4.3
 PyJWT>=2.8.0
+cryptography>=41.0.0
 
 # WebSockets
 websockets>=11.0.3
@@ -69,3 +70,6 @@ reportlab>=4.0.4
 # Testing
 pytest>=7.4.0
 pytest-django>=4.7.0
+
+cryptography>=41.0.0
+

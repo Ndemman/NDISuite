@@ -81,6 +81,14 @@ export default function Login() {
   const [resendLoading, setResendLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  useEffect(() => {
+    // Pre‑flight GET to set the CSRF cookie
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login/`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+  }, []);
+
 
   const {
     register,
