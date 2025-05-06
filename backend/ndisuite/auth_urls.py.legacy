@@ -1,0 +1,27 @@
+"""URLConf for authentication endpoints."""
+from django.urls import path
+from .auth_views import (
+    RegisterView, 
+    LoginView, 
+    VerifyEmailView, 
+    ResendVerificationEmailView,
+    RequestPasswordResetView,
+    PasswordResetView,
+    # Social Authentication Views
+    GoogleOAuthInitView,
+    GoogleOAuthCallbackView
+)
+
+urlpatterns = [
+    path('register/', RegisterView.as_view(), name='auth-register'),
+    path('login/', LoginView.as_view(), name='auth-login'),
+    path('verify-email/<str:token>/', VerifyEmailView.as_view(), name='verify-email'),
+    path('resend-verification/', ResendVerificationEmailView.as_view(), name='resend-verification'),
+    # Password reset endpoints
+    path('request-password-reset/', RequestPasswordResetView.as_view(), name='request-password-reset'),
+    path('reset-password/<str:token>/', PasswordResetView.as_view(), name='reset-password'),
+    
+    # Social authentication endpoints
+    path('social/google/', GoogleOAuthInitView.as_view(), name='google-auth'),
+    path('social/google/callback/', GoogleOAuthCallbackView.as_view(), name='google-callback'),
+]

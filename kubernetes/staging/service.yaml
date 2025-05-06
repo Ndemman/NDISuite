@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ndisuite-backend
+  namespace: ndisuite-staging
+spec:
+  selector:
+    app: ndisuite-backend
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ndisuite-frontend
+  namespace: ndisuite-staging
+spec:
+  selector:
+    app: ndisuite-frontend
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: ClusterIP

@@ -1,0 +1,12 @@
+Welcome to NDISuite!
+
+Hi {{ user.first_name }},
+
+Thank you for registering with NDISuite. Please visit the link below to verify your email address and activate your account:
+
+{{ verification_url }}
+
+This link will expire in 24 hours.
+
+© {% now "Y" %} NDISuite. All rights reserved.
+This email was sent to you because you registered for an account on NDISuite.

@@ -1,0 +1,95 @@
+"""
+JWT utilities for generating and validating tokens
+"""
+import jwt
+import uuid
+from datetime import datetime, timedelta
+from django.conf import settings
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+def generate_jwt_token(user_id, user_email=None, is_new_user=False, expiration_minutes=60*24):
+    """
+    Generate a JWT token for the user
+    
+    Args:
+        user_id: The user ID to include in the token
+        user_email: The user email to include in the token (optional)
+        is_new_user: Whether this is a new user (for onboarding)
+        expiration_minutes: Token expiration time in minutes (default: 24 hours)
+        
+    Returns:
+        String JWT token
+    """
+    payload = {
+        'user_id': user_id,
+        'jti': str(uuid.uuid4()),  # JWT ID for uniqueness
+        'iat': datetime.utcnow(),  # Issued at time
+        'exp': datetime.utcnow() + timedelta(minutes=expiration_minutes)  # Expiration time
+    }
+    
+    # Add optional claims
+    if user_email:
+        payload['email'] = user_email
+    
+    if is_new_user:
+        payload['is_new_user'] = True
+        
+    # Get the secret key from settings, with a fallback
+    secret_key = getattr(settings, 'JWT_SECRET_KEY', settings.SECRET_KEY)
+    
+    # Create the token
+    token = jwt.encode(
+        payload,
+        secret_key,
+        algorithm='HS256'
+    )
+    
+    return token
+
+def validate_jwt_token(token):
+    """
+    Validate a JWT token and return the payload if valid
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Tuple (is_valid, payload, error_message)
+    """
+    if not token:
+        return False, None, "No token provided"
+        
+    try:
+        # Get the secret key from settings, with a fallback
+        secret_key = getattr(settings, 'JWT_SECRET_KEY', settings.SECRET_KEY)
+        
+        # Decode and verify the token
+        payload = jwt.decode(
+            token,
+            secret_key,
+            algorithms=['HS256']
+        )
+        
+        # Check if the user exists
+        user_id = payload.get('user_id')
+        if not user_id:
+            return False, None, "Invalid token: missing user_id"
+            
+        try:
+            user = User.objects.get(id=user_id)
+            if not user.is_active:
+                return False, None, "User account is inactive"
+        except User.DoesNotExist:
+            return False, None, "User not found"
+            
+        # Token is valid
+        return True, payload, None
+        
+    except jwt.ExpiredSignatureError:
+        return False, None, "Token has expired"
+    except jwt.InvalidTokenError:
+        return False, None, "Invalid token"
+    except Exception as e:
+        return False, None, f"Token validation error: {str(e)}"
