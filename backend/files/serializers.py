@@ -18,8 +18,13 @@ class InputFileSerializer(serializers.ModelSerializer):
             'file_size', 'file_size_formatted', 'file_type', 'mime_type', 'status',
             'error', 'created_at', 'updated_at', 'extracted_text'
         ]
+        # Client must NOT send these; backend fills them
         read_only_fields = [
-            'id', 'file_url', 'file_size_formatted', 'status', 'error',
+            'id',
+            'user',          # filled by perform_create()
+            'file_type',     # set in create()
+            'file_url', 'file_size_formatted',
+            'status', 'error',
             'created_at', 'updated_at', 'extracted_text'
         ]
     

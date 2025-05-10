@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from './apiClient';
+import apiClient, { apiGet, apiPost, apiDelete } from './apiClient';
 import { AxiosProgressEvent } from 'axios';
 
 export interface InputFile {
@@ -59,6 +59,9 @@ export const filesService = {
     formData.append('file', file);
     formData.append('session', sessionId);
     formData.append('title', file.name);
+    formData.append('original_filename', file.name);
+    formData.append('file_size', file.size.toString());
+    // file_type omitted – backend handles or derives it
     
     // Track upload progress if callback provided
     const config = onProgress ? {
@@ -74,12 +77,15 @@ export const filesService = {
       }
     } : undefined;
     
-    return await apiPost<InputFile>('/files/files/', formData, {
-      ...config,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Verify FormData is correctly created
+    console.assert(formData instanceof FormData, "formData is not an instance of FormData");
+    console.assert(Object.prototype.toString.call(formData) === "[object FormData]", "formData does not match [object FormData]");
+    
+    // Bypass apiPost so no JSON header logic runs
+    // Axios auto-detects FormData and sets the correct Content-Type
+    // The global interceptor still injects Authorization: Bearer token
+    const response = await apiClient.post<InputFile>('/files/files/', formData, config);  // trailing slash avoids 308
+    return response.data;
   },
   
   /**

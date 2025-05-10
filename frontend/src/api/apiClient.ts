@@ -1,4 +1,12 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { TokenStore } from '@/utils/TokenStore';
+
+// Extend AxiosRequestConfig to include the _retry property
+declare module 'axios' {
+  export interface InternalAxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
 
 // Set the base URL for API requests
 // Using the Next.js API proxy instead of direct backend URL
@@ -11,10 +19,12 @@ console.log('Using proxied API base URL:', API_URL);
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,  // Use the configured API_URL with trailing slash management
   headers: {
-    'Content-Type': 'application/json',
+    // Removed default Content-Type header to allow Axios to auto-detect FormData
+    // Content-Type will be set by apiPost or auto-detected by Axios for FormData
     'Accept': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000, // 30 seconds timeout,
+  withCredentials: true,  // Send cookies for refresh token
 });
 
 // Create a source map to store cancellation tokens
@@ -37,32 +47,38 @@ const cancelPreviousRequests = (url: string, method: string) => {
   }
 };
 
-// list of endpoints that should NOT include auth header
+// list of endpoints that should NOT include auth header - using exact path prefixes
 const AUTH_EXEMPT_PATHS = [
-  '/api/v1/auth/login/',
-  '/api/v1/auth/registration/',
-  '/api/v1/auth/password/reset/',
-  '/api/v1/auth/password/reset/confirm/',
-  '/api/v1/auth/token/',
-  '/api/v1/auth/token/refresh/'
+  '/auth/login',
+  '/auth/token',
+  '/auth/token/refresh',
+  '/auth/token/verify',
+  '/api/v1/auth/login',
+  '/api/v1/auth/registration',
+  '/api/v1/auth/password/reset',
+  '/api/v1/auth/token'
 ];
 
 // Request interceptor for adding the auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Determine if this request URL matches any auth-exempt path. Works for both relative and absolute URLs.
-    const urlToCheck = config.url ?? '';
-    const shouldSkipAuth = AUTH_EXEMPT_PATHS.some((path) => urlToCheck.includes(path));
-    if (!shouldSkipAuth) {
-      let token = localStorage.getItem('auth_token');
-      if (!token && process.env.NODE_ENV === 'development') {
-        token = 'dev-access-token';
-        localStorage.setItem('auth_token', token);
-      }
+    // Strip host from URL if present to handle both absolute and relative URLs
+    const url = (config.url || "").replace(/^https?:\/\/[^/]+/, "");
+    
+    // Check if the URL starts with any of the exempt paths (exact prefix match)
+    const isExempt = AUTH_EXEMPT_PATHS.some(p => url.startsWith(p));
+    
+    // If not exempt, add the Authorization header
+    if (!isExempt) {
+      const token = 
+        TokenStore.access || localStorage.getItem("access");  // fallback
       if (token && config.headers) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
     }
+    
+    // Debug log to verify URL before it leaves the frontend
+    console.log('REQUEST INTERCEPTOR URL:', config.url);
     
     // Cancel previous requests to the same endpoint
     cancelPreviousRequests(config.url!, config.method!);
@@ -71,6 +87,14 @@ apiClient.interceptors.request.use(
     const controller = new AbortController();
     config.signal = controller.signal;
     cancelTokens.set(getRequestId(config.url!, config.method!), controller);
+    
+    // Auto-append trailing slash to URLs (unless they have query params)
+    if (config.url) {
+      if (!config.url.endsWith('/') && !config.url.includes('?')) {
+        config.url += '/';
+        console.log('Trailing slash added:', config.url);
+      }
+    }
     
     return config;
   },
@@ -98,48 +122,38 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     
     // Handle 401 Unauthorized errors (expired token)
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
-      // Try to get refresh token
-      const refreshToken = localStorage.getItem('refresh_token');
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      // Mark this request as retried to avoid infinite retry loop
+      originalRequest._retry = true;
       
-      if (refreshToken && originalRequest) {
-        try {
-          // Call refresh token endpoint
-          const response = await axios.post(`/api/v1/auth/token/refresh/`, {
-            refresh: refreshToken
-          });
-          
-          const { access } = response.data;
-          
-          // Update stored token
-          localStorage.setItem('auth_token', access);
-          
-          // Update auth header and retry the original request
-          if (originalRequest.headers) {
-            originalRequest.headers['Authorization'] = `Bearer ${access}`;
-          }
-          return axios(originalRequest);
-          
-        } catch (refreshError) {
-          console.error('Could not refresh token:', refreshError);
-          // Clear tokens and redirect to login on refresh failure
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-        }
-      } else {
-        // No refresh token available, redirect to login
+      try {
+        // Call refresh endpoint (cookie supplies refresh token)
+        console.log('Attempting token refresh');
+        const { data } = await apiClient.post('/auth/token/refresh/', {});
+        
+        // Save the new access token to TokenStore
+        TokenStore.set(data.access, TokenStore.refresh || '');
+        
+        // Update auth header and retry the original request
+        originalRequest.headers['Authorization'] = `Bearer ${data.access}`;
+        return apiClient(originalRequest);
+        
+      } catch (refreshError) {
+        console.error('Could not refresh token:', refreshError);
+        // Clear tokens on refresh failure
+        TokenStore.clear();
+        
+        // Clear localStorage as well to maintain compatibility with existing code
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
         
+        // Redirect to login page
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
+        
+        return Promise.reject(refreshError);
       }
     }
     
@@ -164,10 +178,21 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Ensure URLs have trailing slashes to prevent Django APPEND_SLASH errors
+const ensureTrailingSlash = (url: string): string => {
+  // Only add trailing slash if it's missing and doesn't already have query parameters
+  if (!url.endsWith('/') && !url.includes('?')) {
+    return `${url}/`;
+  }
+  return url;
+};
+
 // API Client helper functions
 export const apiGet = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+  // Normalize URL to ensure trailing slash
+  const normalizedUrl = ensureTrailingSlash(url);
   try {
-    const response = await apiClient.get<T>(url, config);
+    const response = await apiClient.get<T>(normalizedUrl, config);
     
     // Check if this is a cancelled request that was converted to a success response
     if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
@@ -190,9 +215,24 @@ export const apiGet = async <T>(url: string, config?: AxiosRequestConfig): Promi
   }
 };
 
-export const apiPost = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+export const apiPost = async <T>(url: string, data?: any, config: AxiosRequestConfig = {}): Promise<T> => {
+  // Robust FormData detection that works across different execution contexts
+  const isForm =
+    typeof FormData !== "undefined" &&
+    (data instanceof FormData ||
+      Object.prototype.toString.call(data) === "[object FormData]");
+
+  if (!isForm) {
+    config.headers = {
+      ...(config.headers || {}),
+      "Content-Type": "application/json",
+    };
+  }
+
+  // Normalize URL to ensure trailing slash
+  const normalizedUrl = ensureTrailingSlash(url);
   try {
-    const response = await apiClient.post<T>(url, data, config);
+    const response = await apiClient.post<T>(normalizedUrl, data, config);
     
     // Check if this is a cancelled request that was converted to a success response
     if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
@@ -220,8 +260,10 @@ export const apiPost = async <T>(url: string, data?: any, config?: AxiosRequestC
 };
 
 export const apiPut = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+  // Normalize URL to ensure trailing slash
+  const normalizedUrl = ensureTrailingSlash(url);
   try {
-    const response = await apiClient.put<T>(url, data, config);
+    const response = await apiClient.put<T>(normalizedUrl, data, config);
     
     // Check if this is a cancelled request that was converted to a success response
     if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
@@ -237,8 +279,10 @@ export const apiPut = async <T>(url: string, data?: any, config?: AxiosRequestCo
 };
 
 export const apiPatch = async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+  // Normalize URL to ensure trailing slash
+  const normalizedUrl = ensureTrailingSlash(url);
   try {
-    const response = await apiClient.patch<T>(url, data, config);
+    const response = await apiClient.patch<T>(normalizedUrl, data, config);
     
     // Check if this is a cancelled request that was converted to a success response
     if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {
@@ -254,8 +298,10 @@ export const apiPatch = async <T>(url: string, data?: any, config?: AxiosRequest
 };
 
 export const apiDelete = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+  // Normalize URL to ensure trailing slash
+  const normalizedUrl = ensureTrailingSlash(url);
   try {
-    const response = await apiClient.delete<T>(url, config);
+    const response = await apiClient.delete<T>(normalizedUrl, config);
     
     // Check if this is a cancelled request that was converted to a success response
     if (response.data && typeof response.data === 'object' && 'cancelled' in response.data) {

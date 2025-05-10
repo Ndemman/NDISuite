@@ -76,7 +76,12 @@ class AudioRecordingSerializer(serializers.ModelSerializer):
             'duration_seconds', 'duration', 'audio_file', 'audio_url',
             'transcript', 'transcript_data'
         ]
-        read_only_fields = ['id', 'duration', 'audio_url', 'transcript_data']
+        read_only_fields = [
+            'id',
+            'user',      # filled by perform_create()
+            'status',    # managed by backend
+            'duration', 'audio_url', 'transcript_data'
+        ]
     
     def get_duration(self, obj):
         if obj.duration_seconds:
