@@ -8,7 +8,7 @@ from django.conf import settings
 from ndisuite.utils.llm import get_llm
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.vectorstores import Chroma
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from docx import Document
@@ -57,23 +57,50 @@ def generate_report_task(report_id):
             persist_directory=settings.VECTOR_STORE_PATH
         )
         
-        # Get document chunks from session files
+        # Collect vector IDs for files in the current report's session
         file_ids = [str(file.id) for file in session.files.all()]
         
         # Log the file_ids for debugging
         logger.info(f"Files found for session {session.id}: {file_ids}")
         
-        # Skip retrieval if no files are available
+        # Guard: if no files, skip document RAG
         if not file_ids:
-            logger.warning(f"No files found for session {session.id}, RAG will not be used")
+            logger.warning(f"No files found for session {session.id}, document RAG will not be used")
         
-        # Create retriever with metadata filter for session files
-        retriever = vector_store.as_retriever(
+        # Document retriever - filtered by file_id
+        doc_retriever = vector_store.as_retriever(
             search_kwargs={
                 "k": settings.RAG_TOP_K,
-                "mmr": True  # Use Maximal Marginal Relevance for diversity
-            }
+                "filter": {"file_id": {"$in": file_ids}}
+                # "mmr": True - Removed (deprecated in LangChain ≥ 0.2.8)
+            },
+            search_type="mmr"  # Use Maximal Marginal Relevance for diversity
         )
+        
+        # Transcription retriever - using session-specific collection
+        transcript_ns = f"session_{session.id}"
+        try:
+            # Create a separate vector store for the session's transcripts
+            transcript_vs = Chroma(
+                collection_name=transcript_ns,
+                embedding_function=embeddings,
+                persist_directory=settings.VECTOR_STORE_PATH
+            )
+            
+            # Create retriever for transcripts with strict metadata filtering
+            transcript_filter = {"session_id": str(session.id), "type": "transcript"}
+            trans_retriever = transcript_vs.as_retriever(
+                search_kwargs={
+                    "k": settings.RAG_TOP_K,
+                    "filter": transcript_filter
+                },
+                search_type="mmr"  # Use MMR instead of deprecated "mmr" parameter
+            )
+            logger.info(f"Transcript retriever created with filter: {transcript_filter}")
+            logger.info(f"Set up transcript retriever for collection: {transcript_ns}")
+        except Exception as e:
+            logger.warning(f"Could not set up transcript retriever: {str(e)}")
+            trans_retriever = None
         
         # Process each field in the template
         template_structure = template.structure
@@ -118,30 +145,65 @@ def generate_report_task(report_id):
                 except Exception as e:
                     logger.error(f"Error getting transcript {transcript.id}: {str(e)}")
             
-            # Get relevant context using RAG
+            # Get relevant context using RAG - dual retrieval approach
             context = ""
-            if transcripts:
-                context += "TRANSCRIPTS:\n" + "\n---\n".join(transcripts) + "\n\n"
             
-            # Only attempt RAG retrieval if we have files
-            retrieved_docs = []
+            # Initialize empty lists for documents
+            doc_chunks = []
+            trans_chunks = []
+            
+            # 1. Retrieve document chunks if we have files
             if file_ids:
                 try:
                     # Log retrieval attempt
-                    logger.info(f"Attempting to retrieve documents for prompt: {prompt[:100]}...")
-                    retrieved_docs = retriever.get_relevant_documents(prompt)
-                    logger.info(f"Retrieved {len(retrieved_docs)} documents")
+                    logger.info(f"Attempting to retrieve document chunks for prompt: {prompt[:100]}...")
+                    doc_chunks = doc_retriever.get_relevant_documents(prompt)
+                    logger.info(f"Retrieved {len(doc_chunks)} document chunks with filter: file_ids={file_ids}")
                 except Exception as e:
-                    logger.error(f"Error during RAG retrieval: {str(e)}")
+                    logger.error(f"Error during document RAG retrieval: {str(e)}")
             else:
-                logger.warning("Skipping RAG retrieval - no files available")
+                logger.warning("Skipping document retrieval - no files available")
+            
+            # 2. Retrieve transcript chunks if transcript retriever is available
+            if trans_retriever:
+                try:
+                    logger.info(f"Attempting to retrieve transcript chunks for prompt: {prompt[:100]}...")
+                    trans_chunks = trans_retriever.get_relevant_documents(prompt)
+                    logger.info(f"Retrieved {len(trans_chunks)} transcript chunks from collection {transcript_ns}")
+                except Exception as e:
+                    logger.error(f"Error during transcript RAG retrieval: {str(e)}")
+            
+            # 3. Merge document and transcript chunks
+            all_chunks = doc_chunks + trans_chunks
+            
+            # 4. If we have chunks, sort by similarity score descending
+            if all_chunks:
+                try:
+                    # Sort by similarity score (if available)
+                    all_chunks.sort(key=lambda d: d.metadata.get("similarity", 0), reverse=True)
+                    
+                    # Optionally trim to RAG_TOP_K
+                    all_chunks = all_chunks[:settings.RAG_TOP_K]
+                    
+                    # Build context from merged chunks
+                    for idx, doc in enumerate(all_chunks):
+                        source_type = doc.metadata.get('source_type', 'file')
+                        if doc.metadata.get('type') == 'transcript':
+                            source_type = 'transcript'
+                        
+                        header = f"[DOC {idx+1} | src={source_type}]"
+                        context += header + "\n" + doc.page_content.strip() + "\n\n"
+                        
+                        # Log metadata for debugging
+                        logger.info(f"Using chunk {idx}: {doc.metadata}")
+                except Exception as e:
+                    logger.error(f"Error merging/sorting chunks: {str(e)}")
+            else:
+                logger.warning("No chunks retrieved from either documents or transcripts")
                 
-            if retrieved_docs:
-                context += "RELEVANT DOCUMENTS:\n"
-                for i, doc in enumerate(retrieved_docs):
-                    # Log metadata to help debug
-                    logger.info(f"Doc {i} metadata: {doc.metadata}")
-                    context += f"Document {i+1}:\n{doc.page_content}\n---\n"
+            # If no chunks were retrieved, use a default message
+            if not context.strip():
+                context = "No relevant documents or transcripts found for this query."
             
             # Generate content via configured LLM (Gemma/OpenAI)
             llm = get_llm(temperature=0.7)

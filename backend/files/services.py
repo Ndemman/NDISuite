@@ -8,7 +8,7 @@ from django.conf import settings
 from pymongo import MongoClient
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 
 logger = logging.getLogger('ndisuite')
 
@@ -282,6 +282,12 @@ class DocumentProcessingService:
         Store embedding in vector database
         """
         try:
+            # Validate that file_id is set - critical for proper RAG filtering
+            if not chunk.input_file or not chunk.input_file.id:
+                error_msg = "Cannot create embedding: missing file_id in metadata"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
             # Get or create vector store
             vector_store = Chroma(
                 collection_name="document_chunks",

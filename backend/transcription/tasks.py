@@ -6,7 +6,7 @@ from typing import List
 from celery import shared_task
 from django.conf import settings
 from langchain.docstore.document import Document
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from pymongo import MongoClient

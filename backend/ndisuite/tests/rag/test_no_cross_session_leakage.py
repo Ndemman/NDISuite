@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 from django.conf import settings
 from langchain.schema import Document
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 
 from reports.models import Session, ReportTemplate
 from files.models import InputFile

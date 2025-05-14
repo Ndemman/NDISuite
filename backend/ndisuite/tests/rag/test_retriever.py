@@ -1,6 +1,6 @@
 import pytest
 from django.conf import settings
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 import uuid
 from unittest.mock import patch, MagicMock
