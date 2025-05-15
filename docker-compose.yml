@@ -1,6 +1,18 @@
-version: '3.8'
-
 services:
+  # MongoDB for document storage
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for caching and Celery
   redis:
     image: redis:6
@@ -24,30 +36,47 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     environment:
       - DEBUG=1
       - DJANGO_SECRET_KEY=dev_secret_key
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DJANGO_SETTINGS_MODULE=ndisuite.settings
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+             gunicorn --bind 0.0.0.0:8000 ndisuite.wsgi:application"
 
   # Celery worker
   celery:
     build: ./backend
     volumes:
       - ./backend:/app
+      - ./media:/app/media  # Add media volume for file processing
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       - DEBUG=1
       - DJANGO_SECRET_KEY=dev_secret_key
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DJANGO_SETTINGS_MODULE=ndisuite.settings
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=ndisuite
     command: celery -A ndisuite worker -l INFO
 
   # Celery beat for scheduled tasks
@@ -55,15 +84,23 @@ services:
     build: ./backend
     volumes:
       - ./backend:/app
+      - ./media:/app/media  # Add media volume for file processing
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       - DEBUG=1
       - DJANGO_SECRET_KEY=dev_secret_key
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DJANGO_SETTINGS_MODULE=ndisuite.settings
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=ndisuite
     command: celery -A ndisuite beat -l INFO
 
   # Next.js frontend
@@ -85,4 +122,5 @@ services:
       - backend
     command: sh -c "npm install && npm run dev"
 
-volumes: {}
+volumes:
+  mongo_data: {}

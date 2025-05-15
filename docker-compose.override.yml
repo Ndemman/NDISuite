@@ -1,7 +1,8 @@
-version: '3'
-
 services:
   backend:
+    volumes:
+      - ./backend:/app
+      - ./media:/app/media  # Ensure media directory is mounted
     environment:
       # For development mode
       - DEBUG=True
@@ -12,6 +13,11 @@ services:
       - DEFAULT_FROM_EMAIL=NDISuite <your-outlook-email@outlook.com>
       # API configuration
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      # Celery configuration
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      # MongoDB configuration
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=ndisuite
     ports:
       - "8000:8000"
 
@@ -21,3 +27,25 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
     ports:
       - "3000:3000"
+
+  celery:
+    volumes:
+      - ./backend:/app
+      - ./media:/app/media  # Ensure media directory is mounted
+    environment:
+      # Celery configuration
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      # MongoDB configuration
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=ndisuite
+
+  celery-beat:
+    volumes:
+      - ./backend:/app
+      - ./media:/app/media  # Ensure media directory is mounted
+    environment:
+      # Celery configuration
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      # MongoDB configuration
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=ndisuite

@@ -7,8 +7,8 @@ import docx
 from django.conf import settings
 from pymongo import MongoClient
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 
 logger = logging.getLogger('ndisuite')
 
@@ -288,9 +288,12 @@ class DocumentProcessingService:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
             
-            # Get or create vector store
+            # Get session_id from the input file
+            session_id = str(chunk.input_file.session_id)
+            
+            # Get or create vector store - use session-specific collection
             vector_store = Chroma(
-                collection_name="document_chunks",
+                collection_name=f"session_{session_id}",  # Use session-specific collection
                 embedding_function=self.embeddings,
                 persist_directory=settings.VECTOR_STORE_PATH
             )
@@ -302,12 +305,22 @@ class DocumentProcessingService:
                     metadatas=[{
                         'chunk_id': str(chunk.id),
                         'file_id': str(chunk.input_file.id),
+                        'session_id': session_id,  # Add session_id for proper filtering
                         'chunk_index': chunk.chunk_index,
                         'source_type': chunk.input_file.file_type,
-                        'filename': chunk.input_file.original_filename
+                        'filename': chunk.input_file.original_filename,
+                        'source_type': 'file'  # Explicitly mark as file source
                     }]
                 )
             )
+            
+            # Add debugging logs to verify file_id and session_id
+            logger.info(f"Storing chunk with:")
+            logger.info(f"  File ID: {chunk.input_file.id}")
+            logger.info(f"  Session ID: {chunk.input_file.session_id}")
+            
+            # Persist the vector store to disk - critical for retrieval to work!
+            await asyncio.to_thread(lambda: vector_store.persist())
             
             # Update chunk with embedding ID
             chunk.embedding_id = embedding_id[0]

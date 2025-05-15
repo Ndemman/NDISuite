@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import os
+import time
 from celery import shared_task
 from .models import InputFile
 from .services import DocumentProcessingService
@@ -7,14 +9,22 @@ from .services import DocumentProcessingService
 logger = logging.getLogger('ndisuite')
 
 
-@shared_task
-def process_file_task(file_id):
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 3})
+def process_file_task(self, file_id):
     """
     Celery task to process a file asynchronously
     """
     try:
         # Get the file object
         file_obj = InputFile.objects.get(id=file_id)
+        
+        # Add retry mechanism for file availability
+        for _ in range(10):                 # up to ~5 s total
+            if os.path.exists(file_obj.file.path):
+                break
+            time.sleep(0.5)
+        else:
+            raise FileNotFoundError(f"{file_obj.file.path} still missing after 5 s")
         
         # Create document processing service
         service = DocumentProcessingService()

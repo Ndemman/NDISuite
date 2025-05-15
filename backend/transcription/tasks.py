@@ -6,9 +6,9 @@ from typing import List
 from celery import shared_task
 from django.conf import settings
 from langchain.docstore.document import Document
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_chroma import Chroma
 from pymongo import MongoClient
 
 from .models import Transcript
@@ -16,8 +16,8 @@ from .models import Transcript
 logger = logging.getLogger("ndisuite")
 
 
-@shared_task
-def embed_transcript_task(transcript_id: str):
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 3})
+def embed_transcript_task(self, transcript_id: str):
     """Embed a completed transcript into the session's Chroma collection for RAG.
 
     This task loads the full transcript text (from MongoDB if large), splits it into

@@ -14,42 +14,95 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-temporary-dev-key-cha
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+TOKEN_MODEL  = None          # disable legacy TokenAuth table (fixes startup crash)
+REST_AUTH_TOKEN_MODEL = None
+
+# -----------------------------
+# dj-rest-auth configuration
+# Ensure dj-rest-auth skips legacy TokenAuth entirely by setting TOKEN_MODEL to None
+# and enabling JWT support. This must be provided via the REST_AUTH dict (not as a
+# module-level constant) because dj-rest-auth reads its settings from there.
+# -----------------------------
+REST_AUTH = {
+    "TOKEN_MODEL": None,   # tell dj-rest-auth to NOT expect rest_framework.authtoken
+    "USE_JWT": True,       # we are using SimpleJWT for authentication
+}
+
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'backend']
 
-# Application definition
+# ────────────────────────────────────────────────────────────
+#  Application definition
+# ────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     # Django core
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.sites',  # required by allauth
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.sites",
 
-    # Authentication apps
-    'rest_framework.authtoken',  # required for dj-rest-auth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',  # keep even if no social providers yet
-    'allauth.socialaccount.providers.google',  # Added Google social login
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
+    # Authentication
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+
+    "dj_rest_auth",
+    "dj_rest_auth.registration",
+
+    # JWT token-blacklist (Simple-JWT)
+    "rest_framework_simplejwt.token_blacklist",
 
     # Third-party
-    'rest_framework',
-    'corsheaders',
-    'django_filters',
-    'channels',
-    'django_celery_beat',
-    'django_celery_results',
+    "rest_framework",
+    "corsheaders",
+    "django_filters",
+    "channels",
+    "django_celery_beat",
+    "django_celery_results",
 
-    # Local apps (custom users app removed for fresh start)
-    'ndisuite',  # Core app for auth and email verification
-    'reports',
-    'transcription',
-    'files',
+    # Local apps
+    "ndisuite",
+    "reports",
+    "transcription",
+    "files.apps.FilesConfig",
 ]
+
+
+# ────────────────────────────────────────────────────────────
+#  DRF / JWT configuration
+# ────────────────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+}
+
+REST_USE_JWT = True          # dj-rest-auth should return access / refresh tokens
+
+
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    "SIGNING_KEY": SECRET_KEY,          # use project secret key for JWT signing
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",               # swap to HS512 in production if desired
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    
+    # Cookie settings
+    "JWT_AUTH_COOKIE": "ndisuite-auth",
+    "JWT_AUTH_REFRESH_COOKIE": "ndisuite-refresh",
+    "JWT_AUTH_SECURE": not DEBUG
+}
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -67,6 +120,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'ndisuite.urls'
+
+# Allow API endpoints without a trailing slash
+APPEND_SLASH = False
 
 TEMPLATES = [
     {
@@ -96,7 +152,7 @@ DATABASES = {
 }
 
 # MongoDB configuration for storing transcript data
-MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
+MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://mongo:27017')
 MONGODB_DB = os.environ.get('MONGODB_DB', 'ndisuite')
 
 # Redis connection for caching and Channels
@@ -205,58 +261,8 @@ else:
 # Email settings common to both environments
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ndisuite.app')
 
-# REST Framework settings
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT authentication
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    # Rate limiting settings
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/hour',  # Limit anonymous users to 20 requests per hour
-        'user': '1000/day',  # Limit authenticated users to 1000 requests per day
-        'auth_login': '5/minute',  # Limit login attempts to 5 per minute
-        'auth_register': '10/hour',  # Limit registration attempts to 10 per hour
-        'password_reset': '5/hour',  # Limit password reset requests to 5 per hour
-    },
-}
-
-# dj-rest-auth and JWT settings
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = 'ndisuite-auth'  # Cookie name to store the access token
-JWT_AUTH_REFRESH_COOKIE = 'ndisuite-refresh'  # Cookie name to store the refresh token
-JWT_AUTH_SECURE = not DEBUG  # Only use secure cookies in production
-JWT_AUTH_SAMESITE = 'Lax'  # Cookie security setting
-OLD_PASSWORD_FIELD_ENABLED = True  # Enable old password field for password change
-
-# Configure JWT token lifetime settings
-from datetime import timedelta
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Short-lived access tokens
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Longer-lived refresh tokens
-    'ROTATE_REFRESH_TOKENS': True,  # Generate new refresh token when refreshed
-    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens
-    'UPDATE_LAST_LOGIN': True,  # Update last login timestamp
-    
-    # Stronger algorithm in production
-    'ALGORITHM': 'HS512' if not DEBUG else 'HS256',
-    
-    # Only validate the audience claim in production
-    'AUDIENCE': os.environ.get('JWT_AUDIENCE') if not DEBUG else None,
-    
-    # Auth header prefix
-    'AUTH_HEADER_TYPES': ('Bearer',),
-}
+# Add any additional REST Framework settings that should be kept here
+# Note: Main JWT and REST settings are now defined above
 
 # Social Authentication settings
 SOCIALACCOUNT_PROVIDERS = {
@@ -296,13 +302,7 @@ REST_AUTH_REGISTER_SERIALIZERS = {
     'REGISTER_SERIALIZER': 'ndisuite.serializers.CustomRegisterSerializer',
 }
 
-# JWT configuration
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,  # Set to True if using token blacklist app
-}
+# JWT configuration is defined above at line ~250
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
@@ -458,4 +458,3 @@ LOGGING = {
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
-
