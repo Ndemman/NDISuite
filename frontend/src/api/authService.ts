@@ -1,4 +1,5 @@
 import { apiPost } from './apiClient';
+import { TokenStore } from '@/utils/TokenStore';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to read a cookie by name
@@ -70,36 +71,13 @@ export const authService = {
     try {
       console.log('Attempting login with credentials:', { email: credentials.email });
 
-      // First make a GET request to set the CSRF cookie
-      await fetch('/api/v1/auth/login/', {
-        method: 'GET',
-        credentials: 'include',
-      });
+      // Using the shared apiClient instead of direct fetch call
+      const response = await apiPost('/auth/login/', credentials);
       
-      // Get CSRF token using the helper function
-      const csrfToken = getCookie('csrftoken') || '';
-      console.log('CSRF Token retrieved:', csrfToken ? 'Yes' : 'No');
+      // No need to check response.ok as apiPost will throw on error
 
-      // Make sure to use URL with trailing slash for Django compatibility
-      const response = await fetch('/api/v1/auth/login/', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRFToken': csrfToken,
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Login API error:', errorData);
-        throw new Error('Invalid email or password.');
-      }
-
-      // Parse the auth response which may have different formats depending on backend configuration
-      const responseData = await response.json();
+      // apiPost returns the parsed response data directly
+      const responseData = response;
       console.log('Raw login response:', responseData);
       
       // Convert to our internal LoginResponse format
@@ -123,11 +101,14 @@ export const authService = {
         }
       };
 
-      // Store tokens and user data
-      localStorage.setItem('auth_token', data.tokens.access);
-      if (data.tokens.refresh) {
-        localStorage.setItem('refresh_token', data.tokens.refresh);
-      }
+      // Store tokens in memory using TokenStore
+      TokenStore.set(data.tokens.access, data.tokens.refresh);
+      
+      // Also persist tokens in localStorage to survive page refreshes
+      localStorage.setItem('access', data.tokens.access);
+      localStorage.setItem('refresh', data.tokens.refresh || '');
+      
+      // Store user data in localStorage for user profile access
       localStorage.setItem('user', JSON.stringify(data.user));
 
       console.log('Login successful');
@@ -211,15 +192,15 @@ export const authService = {
       
       if (!response.ok) {
         // If refresh fails, clear tokens and redirect to login
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
+        TokenStore.clear();
         throw new Error('Token refresh failed');
       }
       
       const data = await response.json();
       
       if (data.access) {
-        localStorage.setItem('auth_token', data.access);
+        // Update token in memory store
+        TokenStore.set(data.access, TokenStore.refresh || '');
         return data.access;
       } else {
         throw new Error('Invalid token response format');
@@ -233,16 +214,25 @@ export const authService = {
   /**
    * Log out the current user
    */
-  logout: (): void => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+  logout: () => {
+    try {
+      // Clear tokens from memory store
+      TokenStore.clear();
+      
+      // Also clear from localStorage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+    } catch (e) {
+      console.error('Error during logout:', e);
+    }
   },
   
   /**
    * Get the current user from localStorage
    */
   getCurrentUser: (): UserData | null => {
+    // We still use localStorage for user data (not tokens)
     const userJson = localStorage.getItem('user');
     if (userJson) {
       try {
@@ -258,7 +248,8 @@ export const authService = {
    * Check if a user is currently logged in
    */
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('auth_token');
+    // Use TokenStore instead of localStorage to check authentication
+    return !!TokenStore.access;
   },
   
   /**
@@ -344,10 +335,11 @@ export const authService = {
       
       const data: LoginResponse = await response.json();
       
-      // Store tokens and user data for automatic login
+      // Store tokens in memory and user data for automatic login
       if (data.tokens) {
-        localStorage.setItem('auth_token', data.tokens.access);
-        localStorage.setItem('refresh_token', data.tokens.refresh);
+        // Use TokenStore for token storage
+        TokenStore.set(data.tokens.access, data.tokens.refresh);
+        // Only store user data in localStorage
         localStorage.setItem('user', JSON.stringify(data.user));
       }
       
@@ -412,8 +404,8 @@ export const authService = {
       throw new Error('Authentication failed');
     }
     
-    // Store the token in localStorage
-    localStorage.setItem('auth_token', token);
+    // Store the token in TokenStore (not localStorage)
+    TokenStore.set(token, ''); // No refresh token available in social auth flow
     
     // Redirect to dashboard or onboarding based on whether this is a new user
     if (isNewUser) {

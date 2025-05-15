@@ -1,4 +1,5 @@
 import pytest
+import logging
 from django.conf import settings
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.schema import Document
@@ -7,6 +8,8 @@ from unittest.mock import patch, MagicMock
 
 from reports.tasks import generate_report_task
 import reports.tasks as rpt   # production module already imported
+
+logger = logging.getLogger(__name__)
 
 
 # _mk function is now defined in conftest.py
@@ -48,7 +51,7 @@ def generate_report_context(prompt, session):
     # Lazy import Chroma to ensure it's imported after patching
     import langchain_community.vectorstores as lcvs
     
-    print("[DEBUG] generate_report_context STARTED")
+    logger.debug("generate_report_context STARTED")
     # Setup OpenAI embeddings mock
     embeddings = MagicMock(spec=OpenAIEmbeddings)
     # Fix for ValueError: Expected Embeddings to be non-empty list or numpy array
@@ -56,13 +59,13 @@ def generate_report_context(prompt, session):
     embeddings.embed_query.return_value = np.zeros(1536)
     
     # Load document vector store
-    print("[DEBUG] Creating document Chroma instance")
+    logger.debug("Creating document Chroma instance")
     vector_store = lcvs.Chroma(
         collection_name="document_chunks",
         embedding_function=embeddings,
         persist_directory=settings.VECTOR_STORE_PATH
     )
-    print("[DEBUG] Document Chroma instance created")
+    logger.debug("Document Chroma instance created")
     
     # Collect file IDs
     file_ids = [str(file.id) for file in session.files.all()]
@@ -79,13 +82,13 @@ def generate_report_context(prompt, session):
     
     # Transcription retriever
     transcript_ns = f"session_{session.id}"
-    print(f"[DEBUG] Creating transcript Chroma instance with collection_name={transcript_ns}")
+    logger.debug(f"Creating transcript Chroma instance with collection_name={transcript_ns}")
     transcript_vs = lcvs.Chroma(
         collection_name=transcript_ns,
         embedding_function=embeddings,
         persist_directory=settings.VECTOR_STORE_PATH
     )
-    print("[DEBUG] Transcript Chroma instance created")
+    logger.debug("Transcript Chroma instance created")
     
     trans_retriever = transcript_vs.as_retriever(
         search_kwargs={
@@ -109,10 +112,10 @@ def test_dual_retriever_merges_file_and_transcript(session_with_data):
     """Test that the dual retriever combines both file and transcript chunks"""
     prompt = "What symptoms did the client report?"
     
-    print("\n[DEBUG] Retrieved docs:")
+    logger.debug("Retrieved docs:")
     docs = generate_report_context(prompt, session_with_data.session)
     for d in docs:
-        print(d.metadata)
+        logger.debug(f"Document metadata: {d.metadata}")
     
     # Filter file chunks and check that they belong to this session
     file_chunks = [d for d in docs if d.metadata.get("type") == "file"]

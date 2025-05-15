@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TokenStore } from '@/utils/TokenStore';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
@@ -71,7 +72,7 @@ export default function ProfileSettings() {
         // Get full user profile from API
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Authorization': `Bearer ${TokenStore.access}`,
             'Content-Type': 'application/json',
           },
         });
@@ -110,7 +111,7 @@ export default function ProfileSettings() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
@@ -157,7 +158,7 @@ export default function ProfileSettings() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/password/change/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

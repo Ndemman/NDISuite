@@ -38,11 +38,12 @@ urlpatterns = [
     
     # dj-rest-auth routes
     path('api/v1/auth/', include('dj_rest_auth.urls')),  # login, logout, password reset
-    path('api/v1/auth/registration/', include('dj_rest_auth.registration.urls')),  # signup, email verification
-    
-    # JWT token endpoints
+    # JWT endpoints from dj-rest-auth
     path('api/v1/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/registration/', include('dj_rest_auth.registration.urls')),  # signup, email verification
+    
+    # JWT token verification endpoint
     path('api/v1/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     
     # API Documentation

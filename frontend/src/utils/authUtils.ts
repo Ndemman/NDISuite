@@ -1,6 +1,7 @@
 /**
  * Authentication utilities for API requests
  */
+import { TokenStore } from './TokenStore';
 
 /**
  * Get authentication headers for API requests
@@ -9,7 +10,7 @@
 export const authHeader = (): Record<string, string> => {
   if (typeof window === 'undefined') return {}; // For SSR
   
-  const token = localStorage.getItem('auth_token');
+  const token = TokenStore.access;
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

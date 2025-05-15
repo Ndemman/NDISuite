@@ -3,6 +3,7 @@ Test to verify that RAG retrieval doesn't leak data between different sessions.
 """
 
 import pytest
+import logging
 from unittest.mock import patch, MagicMock
 import numpy as np
 from django.conf import settings
@@ -13,6 +14,8 @@ from reports.models import Session, ReportTemplate
 from files.models import InputFile
 from transcription.models import Transcript
 from reports.tasks import generate_report_context
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture

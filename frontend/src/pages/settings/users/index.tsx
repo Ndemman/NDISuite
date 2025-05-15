@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TokenStore } from '@/utils/TokenStore';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -48,7 +49,7 @@ export default function UserManagement() {
         setLoading(true);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/child-accounts/`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Authorization': `Bearer ${TokenStore.access}`,
             'Content-Type': 'application/json',
           },
         });

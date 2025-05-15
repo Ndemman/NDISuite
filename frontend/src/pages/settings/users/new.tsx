@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { TokenStore } from '@/utils/TokenStore';
 import { Loader2, ArrowLeft, CheckCircle, AlertTriangle } from 'lucide-react';
 import authService from '@/api/authService';
 
@@ -64,7 +65,7 @@ export default function CreateChildAccount() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/child-accounts/create/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),

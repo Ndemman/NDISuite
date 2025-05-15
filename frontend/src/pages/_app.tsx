@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import '@/styles/globals.css';
 import { useEffect } from 'react';
 import { initializeErrorHandling } from '@/utils/errorHandling';
+import { initAuth } from '@/utils/initAuth';
 
 // Add type for pages with custom layouts
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -19,21 +20,14 @@ type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout
 };
 
-// Development mode authentication bypass
-if (process.env.NODE_ENV === 'development') {
-  // Mock authentication token for development
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('auth_token', 'dev-access-token');
-  }
-}
-
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
   // Use the layout defined at the page level, or fall back to just rendering the page without a layout
   const getLayout = Component.getLayout ?? ((page) => <Layout>{page}</Layout>);
   
-  // Initialize error handling
+  // Initialize error handling and auth
   useEffect(() => {
     initializeErrorHandling();
+    initAuth(); // Run once on client mount to hydrate TokenStore from localStorage
   }, []);
   
   return (

@@ -74,29 +74,11 @@ export const reportsService = {
     try {
       console.log('Creating session with data:', sessionData);
       
-      // For direct fetch to work around potential network issues in development
-      if (typeof window !== 'undefined') {
-        const response = await fetch('/api/v1/reports/sessions/', {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            ...authHeader()
-          },
-          body: JSON.stringify(sessionData)
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Session creation API error:', errorData);
-          throw new Error(JSON.stringify(errorData));
-        }
-        
-        return await response.json();
-      }
-      
-      // Fallback to apiPost with proper auth headers
+      // NOTE: trailing slash to avoid the 308 redirect
+      // No custom headers to prevent removal of Authorization header set by interceptor
+      console.log("POSTing to", '/reports/sessions/', sessionData);
       return await apiPost<Session>('/reports/sessions/', sessionData);
+    
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;

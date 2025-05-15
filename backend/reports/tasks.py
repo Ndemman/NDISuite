@@ -7,8 +7,8 @@ from celery import shared_task
 from django.conf import settings
 from ndisuite.utils.llm import get_llm
 from langchain.schema import SystemMessage, HumanMessage
-from langchain.vectorstores import Chroma
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from docx import Document
@@ -50,9 +50,9 @@ def generate_report_task(report_id):
             model=settings.EMBEDDING_MODEL
         )
         
-        # Load vector store
+        # Load vector store - use session-specific collection
         vector_store = Chroma(
-            collection_name="document_chunks",
+            collection_name=f"session_{session.id}",
             embedding_function=embeddings,
             persist_directory=settings.VECTOR_STORE_PATH
         )
@@ -67,11 +67,14 @@ def generate_report_task(report_id):
         if not file_ids:
             logger.warning(f"No files found for session {session.id}, document RAG will not be used")
         
-        # Document retriever - filtered by file_id
+        # Document retriever - filtered by file_id and session_id
         doc_retriever = vector_store.as_retriever(
             search_kwargs={
                 "k": settings.RAG_TOP_K,
-                "filter": {"file_id": {"$in": file_ids}}
+                "filter": {
+                    "file_id": {"$in": file_ids},
+                    "session_id": str(session.id)  # Add session_id filter for better isolation
+                }
                 # "mmr": True - Removed (deprecated in LangChain ≥ 0.2.8)
             },
             search_type="mmr"  # Use Maximal Marginal Relevance for diversity

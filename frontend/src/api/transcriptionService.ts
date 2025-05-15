@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from './apiClient';
+import { TokenStore } from '@/utils/TokenStore';
 
 export interface AudioRecording {
   id: string;
@@ -66,8 +67,8 @@ export const transcriptionService = {
    * Start a new recording session with WebSocket connection
    */
   startRecordingSession: (sessionId: string, onMessage: (transcript: string) => void, onError: (error: Error) => void) => {
-    // Get token from localStorage if it exists
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    // Get token from TokenStore
+    const token = TokenStore.access;
     
     // Create WebSocket connection
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -217,11 +218,9 @@ export const transcriptionService = {
     formData.append('audio_file', audioFile);
     formData.append('session_id', sessionId);
     
-    return await apiPost<AudioRecording>('/transcription/upload/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let Axios handle it automatically for FormData
+    // This prevents overriding the Authorization header set by the interceptor
+    return await apiPost<AudioRecording>('/transcription/upload/', formData);
   },
   
   /**

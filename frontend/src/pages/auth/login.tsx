@@ -83,7 +83,8 @@ export default function Login() {
 
   useEffect(() => {
     // Pre‑flight GET to set the CSRF cookie
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login/`, {
+    // Use the /api/v1 proxy path defined in next.config.js instead of the full URL
+    fetch(`/api/v1/auth/login/`, {
       method: 'GET',
       credentials: 'include',
     });

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, ArrowLeft, CheckCircle, AlertTriangle, UserX, Trash2 } from 'lucide-react';
 import authService from '@/api/authService';
+import { TokenStore } from '@/utils/TokenStore';
 
 // Edit child account form schema
 const editUserSchema = z.object({
@@ -79,7 +80,7 @@ export default function EditUser() {
         setIsFetching(true);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}/`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Authorization': `Bearer ${TokenStore.access}`,
             'Content-Type': 'application/json',
           },
         });
@@ -122,7 +123,7 @@ export default function EditUser() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}/`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
@@ -155,7 +156,7 @@ export default function EditUser() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}/`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ is_active: false }),
@@ -194,7 +195,7 @@ export default function EditUser() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}/`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${TokenStore.access}`,
           'Content-Type': 'application/json',
         },
       });

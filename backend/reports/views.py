@@ -33,13 +33,9 @@ class SessionViewSet(viewsets.ModelViewSet):
         return Session.objects.filter(user=self.request.user).order_by('-created_at')
     
     def perform_create(self, serializer):
-        from django.contrib.auth import get_user_model
-        User=get_user_model()
-        user=self.request.user if getattr(self.request,'user',None) and not self.request.user.is_anonymous else User.objects.get(id=10)
-        if not self.request.user.is_authenticated:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Authentication credentials were not provided or are invalid.")
-        serializer.save(user=user)
+        # Check authentication is already handled by IsAuthenticated permission class
+        # This just ensures the session is associated with the authenticated user
+        serializer.save(user=self.request.user)
     
     @action(detail=True, methods=['get'])
     def reports(self, request, pk=None):

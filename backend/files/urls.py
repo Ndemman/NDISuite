@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 
-router = DefaultRouter()
+# Make all routes slash-optional
+router = DefaultRouter(trailing_slash=False)
 router.register(r'files', views.InputFileViewSet, basename='file')
 router.register(r'chunks', views.ProcessedChunkViewSet, basename='chunk')
 
