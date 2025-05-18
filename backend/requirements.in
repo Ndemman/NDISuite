@@ -1,0 +1,80 @@
+# Django and DRF
+Django>=4.2.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.1.0
+django-filter>=23.2
+channels>=4.0.0
+channels-redis>=4.1.0
+drf-yasg>=1.21.7
+coreapi>=2.3.3
+django-ratelimit>=4.1.0
+djangorestframework-simplejwt>=5.3.0
+django-allauth>=0.55.0
+dj-rest-auth>=5.0.1
+drf-nested-routers>=0.93.4
+
+# ASGI Server
+uvicorn>=0.23.0
+gunicorn>=21.2.0
+
+# Database
+pymongo>=4.4.0
+motor>=3.2.0
+redis>=4.6.0
+django-redis>=5.3.0
+
+# Async Task Processing
+celery>=5.3.0
+django-celery-beat>=2.5.0
+django-celery-results>=2.5.0
+
+# Storage
+django-storages>=1.13.2
+boto3>=1.28.0
+
+# AI and LLM  – LangChain 0.3-series (aligned)
+openai>=1.66.0,<2.0
+httpx>=0.27.0
+
+# LangChain core and add-ons – all built on langchain-core 0.3.x
+langchain>=0.3.0,<0.4.0
+langchain-core>=0.3.60,<0.4.0          # explicit pin for stability
+langchain-community>=0.3.20,<0.4.0
+langchain-openai>=0.3.17,<1.0.0
+langchain-chroma>=0.2.0,<0.3.0
+
+
+# Vector DB
+chromadb==0.4.24
+
+# Google client pulled in by langchain-google-genai
+google-generativeai==0.8.5
+
+# Document Processing
+PyMuPDF>=1.22.3
+python-docx>=0.8.11
+python-pptx>=0.6.21
+openpyxl>=3.1.2
+pydub>=0.25.1
+pytesseract>=0.3.10
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+Pillow>=10.0.0
+tqdm>=4.65.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.2
+markdown>=3.4.3
+cryptography>=41.0.0
+
+# WebSockets
+websockets>=11.0.3
+
+# Export
+weasyprint>=59.0
+reportlab>=4.0.4
+
+# Testing
+pytest>=7.4.0
+pytest-django>=4.7.0
