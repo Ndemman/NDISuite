@@ -1,12 +1,14 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from django.db.models import Q
 from .models import Session, Template, Report, OutputField, ReportVersion, ExportedReport
 from .serializers import (SessionSerializer, TemplateSerializer, ReportSerializer,
                          OutputFieldSerializer, ReportVersionSerializer, ExportedReportSerializer)
 from .tasks import generate_report_task, export_report_task
+from files.models import InputFile, ProcessedChunk
 
 
 class SessionViewSet(viewsets.ModelViewSet):
@@ -47,10 +49,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = ReportSerializer(reports, many=True, context={'request': request})
         return Response(serializer.data)
     
-    @action(detail=True, methods=['get'])
-    def files(self, request, pk=None):
+    @action(detail=True, methods=['get'], url_path='files-summary')
+    def files_summary(self, request, pk=None):
         """
-        Get all files for a session
+        GET /sessions/<pk>/files-summary/
         """
         session = self.get_object()
         files = session.files.all().order_by('-created_at')
@@ -76,6 +78,19 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = TranscriptSerializer(transcripts, many=True, context={'request': request})
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'], url_path='vector_count')
+    def vector_count(self, request, pk=None):
+        """
+        Return how many vector rows exist for this session.
+        Used by the client to poll embedding progress.
+        """
+        total = ProcessedChunk.objects.filter(
+            input_file__session_id=pk,
+            embedding_id__isnull=False,
+            embedding_id__gt=''
+        ).count()
+        return Response({"vectors": total})
+    
     @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
         """
@@ -93,12 +108,16 @@ class SessionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class TemplateViewSet(viewsets.ModelViewSet):
+class TemplateViewSet(mixins.CreateModelMixin,
+                      mixins.ListModelMixin,
+                      mixins.RetrieveModelMixin,
+                      viewsets.GenericViewSet):
     """
-    API endpoint for managing report templates
+    CRUD for report templates (system + user).
     """
+    queryset = Template.objects.all()
     serializer_class = TemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         """
@@ -107,19 +126,35 @@ class TemplateViewSet(viewsets.ModelViewSet):
         return Template.objects.filter(is_system=True) | Template.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
-        from django.contrib.auth import get_user_model
-        User=get_user_model()
-        user=self.request.user if getattr(self.request,'user',None) and not self.request.user.is_anonymous else User.objects.get(id=10)
         serializer.save(user=self.request.user, is_system=False)
 
 
-class ReportViewSet(viewsets.ModelViewSet):
+class ReportViewSet(mixins.CreateModelMixin,
+                    mixins.ListModelMixin,
+                    mixins.RetrieveModelMixin,
+                    viewsets.GenericViewSet):
     """
-    API endpoint for managing generated reports
+    Allows an authenticated user to:
+      • POST   /api/v1/reports/           → create a draft linked to a Session
+      • GET    /api/v1/reports/           → list their reports
+      • GET    /api/v1/reports/<id>       → fetch a single report
+      • POST   /api/v1/reports/<id>/generate  (existing @action) → run RAG
     """
     serializer_class = ReportSerializer
     permission_classes = [IsAuthenticated]
     
+    def perform_create(self, serializer):
+        """
+        Called by DRF's CreateModelMixin.
+        – If we're on /sessions/<sid>/reports, infer the session from URL.
+        – Otherwise expect session in the JSON payload.
+        """
+        sid = self.kwargs.get("session_pk")        # present only on nested route
+        if sid and "session" not in serializer.validated_data:
+            serializer.save(session_id=sid)
+        else:
+            serializer.save()                      # ← No extra kwargs!
+        
     def get_queryset(self):
         """
         Filter reports by user and optionally by session

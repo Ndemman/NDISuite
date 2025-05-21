@@ -37,14 +37,14 @@ export const filesService = {
    * Get all files for a session
    */
   getFiles: async (sessionId: string): Promise<InputFile[]> => {
-    return await apiGet<InputFile[]>(`/files/sessions/${sessionId}/files/`);
+    return await apiGet<InputFile[]>(`files/sessions/${sessionId}/files/`); // Add trailing slash to match backend router expectation
   },
   
   /**
    * Get a specific file by ID
    */
   getFile: async (fileId: string): Promise<InputFile> => {
-    return await apiGet<InputFile>(`/files/files/${fileId}/`);
+    return await apiGet<InputFile>(`files/files/${fileId}/`); // No leading slash to preserve baseURL
   },
   
   /**
@@ -57,7 +57,7 @@ export const filesService = {
   ): Promise<InputFile> => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('session', sessionId);
+    // session is now part of the URL path, not form data
     formData.append('title', file.name);
     formData.append('original_filename', file.name);
     formData.append('file_size', file.size.toString());
@@ -84,7 +84,15 @@ export const filesService = {
     // Bypass apiPost so no JSON header logic runs
     // Axios auto-detects FormData and sets the correct Content-Type
     // The global interceptor still injects Authorization: Bearer token
-    const response = await apiClient.post<InputFile>('/files/files/', formData, config);  // trailing slash avoids 308
+    // Use the session-scoped endpoint instead of the legacy endpoint
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/reports/sessions/${sessionId}/files/`; // Use absolute URL to bypass Next.js proxy
+    
+    // temporary debug ↓↓↓
+    console.log("upload sessionId =", sessionId);
+    console.log("upload url      =", url);
+    // end debug ↑↑↑
+    
+    const response = await apiClient.post<InputFile>(url, formData, config);  // trailing slash avoids 308
     return response.data;
   },
   
@@ -92,14 +100,14 @@ export const filesService = {
    * Delete a file
    */
   deleteFile: async (fileId: string): Promise<void> => {
-    await apiDelete<void>(`/files/files/${fileId}/`);
+    await apiDelete<void>(`files/files/${fileId}/`); // No leading slash to preserve baseURL
   },
   
   /**
    * Get the extracted text content from a file
    */
   getFileContent: async (fileId: string): Promise<string> => {
-    const response = await apiGet<{content: string}>(`/files/files/${fileId}/content/`);
+    const response = await apiGet<{content: string}>(`files/files/${fileId}/content/`); // No leading slash to preserve baseURL
     return response.content;
   },
   
@@ -107,21 +115,21 @@ export const filesService = {
    * Get the processing status of a file
    */
   getFileStatus: async (fileId: string): Promise<InputFile> => {
-    return await apiGet<InputFile>(`/files/files/${fileId}/status/`);
+    return await apiGet<InputFile>(`files/files/${fileId}/status/`); // No leading slash to preserve baseURL
   },
   
   /**
    * Get the processed chunks for a file
    */
   getFileChunks: async (fileId: string): Promise<ProcessedChunk[]> => {
-    return await apiGet<ProcessedChunk[]>(`/files/files/${fileId}/chunks/`);
+    return await apiGet<ProcessedChunk[]>(`files/files/${fileId}/chunks/`); // No leading slash to preserve baseURL
   },
   
   /**
    * Create a report from an uploaded document
    */
   createReportFromFile: async (fileId: string, templateId: string): Promise<string> => {
-    const response = await apiPost<{report_id: string}>(`/files/files/${fileId}/convert/`, {
+    const response = await apiPost<{report_id: string}>(`files/files/${fileId}/convert/`, { // No leading slash to preserve baseURL
       template_id: templateId
     });
     

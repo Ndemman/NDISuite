@@ -6,6 +6,7 @@ const API_URL =
   'http://localhost:8000/api/v1';
 
 const nextConfig = {
+  trailingSlash: true,   // Keeps trailing slashes on every route
   reactStrictMode: true,
   images: {
     domains: ['localhost'],
@@ -15,10 +16,15 @@ const nextConfig = {
   },
   // Add rewrites for API proxy
   async rewrites() {
+    // Custom rewrite function to ensure trailing slashes are preserved
     return [
       {
-        source: '/api/v1/:path*',
-        destination: `${API_URL}/:path*`,
+        source: '/api/v1/:path*/',  // Match paths with trailing slash
+        destination: `${API_URL}/:path*/`,  // Preserve trailing slash in destination
+      },
+      {
+        source: '/api/v1/:path*',  // Match paths without trailing slash
+        destination: `${API_URL}/:path*`,  // Keep as-is for non-trailing slash paths
       },
     ];
   },
@@ -36,7 +42,7 @@ const nextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob:;
               font-src 'self';
-              connect-src 'self' ${new URL(API_URL).origin} ws://${new URL(API_URL).host};
+              connect-src 'self' ${new URL(API_URL).origin} ws://${new URL(API_URL).host} http://localhost:8000;
               frame-src 'self';
               object-src 'none';
             `.replace(/\s+/g, ' ').trim()
