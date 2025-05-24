@@ -9,14 +9,45 @@ class TemplateSerializer(serializers.ModelSerializer):
     Serializer for the Template model
     """
     is_system_template = serializers.ReadOnlyField(source='is_system')
+    slug = serializers.SerializerMethodField()  # ADD THIS LINE
     
     class Meta:
         model = Template
         fields = [
             'id', 'name', 'description', 'user', 'is_system_template',
+            'slug',  # ADD THIS TO FIELDS
             'structure', 'export_styles', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def validate_structure(self, value):
+        # Accept list or dict; always return dict
+        if isinstance(value, list):
+            value = {"fields": value}
+        return value
+        
+    def get_slug(self, obj):  # ADD THIS METHOD
+        """
+        Extract slug from structure or generate from name
+        """
+        # First, check if slug exists in structure
+        if isinstance(obj.structure, dict) and 'slug' in obj.structure:
+            return obj.structure['slug']
+        
+        # Otherwise, generate slug from name
+        from django.utils.text import slugify
+        name_to_slug_map = {
+            'Progress Report': 'progress',
+            'Assessment Report': 'assessment', 
+            'Therapy Report': 'therapy',
+        }
+        
+        # Use predefined mapping if available
+        if obj.name in name_to_slug_map:
+            return name_to_slug_map[obj.name]
+        
+        # Fallback to slugified name
+        return slugify(obj.name)
 
 
 class OutputFieldSerializer(serializers.ModelSerializer):
@@ -27,9 +58,10 @@ class OutputFieldSerializer(serializers.ModelSerializer):
         model = OutputField
         fields = [
             'id', 'report', 'name', 'label', 'field_type', 'options',
-            'value', 'order', 'validation', 'generation_prompt'
+            'value', 'order', 'validation', 'generation_prompt',
+            'created_by',         # NEW
         ]
-        read_only_fields = ['id', 'user']
+        read_only_fields = ['id', 'created_by']
 
 
 class ReportVersionSerializer(serializers.ModelSerializer):
@@ -97,6 +129,13 @@ class ReportSerializer(serializers.ModelSerializer):
             'content', 'fields', 'versions', 'exports', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'template': {
+                'read_only': False,
+                'required': True,
+                'allow_null': False,
+            },
+        }
     
     def get_template_name(self, obj):
         if obj.template:
